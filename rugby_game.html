@@ -1,0 +1,3771 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rugby XV — Le Jeu Complet</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh; overflow: hidden; }
+  canvas { display: block; }
+  #hint { position: fixed; bottom: 5px; right: 8px; color: #333; font-size: 9px; font-family: monospace; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">Xbox Controller | Clavier: WASD=déplacer, IJKL=stick droit, Z=A, X=B, C=X, V=Y, Espace=RT, Maj=LT, Entrée=Confirmer/Start</div>
+<script>
+// ============================================================
+// PLAYER GENERATORS (defined FIRST so TEAM_DB can use them)
+// ============================================================
+const FIRST_NAMES = ['James','Liam','Ethan','Noah','Ryan','Chris','Jake','Tom','Will','Sam',
+  'Max','Ben','Jack','Alex','Dan','Matt','Luke','Owen','Finn','Leo',
+  'Hugo','Louis','Pierre','Antoine','Théo','Lucas','Clément','Maxime','Nicolas','Baptiste'];
+const LAST_NAMES = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis',
+  'Wilson','Anderson','Taylor','Thomas','Moore','Jackson','Martin','Lee',
+  'Perez','Thompson','White','Harris','Dupont','Martin','Bernard','Leroy','Dubois',
+  'Lambert','Simon','Michel','Richard','Durand'];
+
+// Seeded random for consistent player generation
+function seededRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0xFFFFFFFF;
+    return (s >>> 0) / 0xFFFFFFFF;
+  };
+}
+
+function genPlayer(teamQuality, posIdx, rand) {
+  rand = rand || Math.random.bind(Math);
+  const variance = Math.floor(rand() * 8) - 4;
+  const posBonus = [0,-1,0,1,1,2,2,1,3,3,2,2,2,2,2][posIdx] || 0;
+  const r = Math.max(50, Math.min(97, teamQuality + variance + posBonus));
+  const fn = FIRST_NAMES[Math.floor(rand() * FIRST_NAMES.length)];
+  const ln = LAST_NAMES[Math.floor(rand() * LAST_NAMES.length)];
+  return { n: fn[0] + '. ' + ln, r };
+}
+
+function genPlayers(seed, baseRating) {
+  const rand = seededRand(seed.split('').reduce((a,c) => a + c.charCodeAt(0), 0));
+  const arr = [];
+  for (let i = 0; i < 24; i++) arr.push(genPlayer(baseRating, i % 15, rand));
+  return arr;
+}
+'use strict';
+// ============================================================
+// RUGBY XV - Complete Rugby Game
+// ============================================================
+
+const C = document.getElementById('c');
+const ctx = C.getContext('2d');
+const W = 1280, H = 720;
+C.width = W; C.height = H;
+
+function resizeCanvas() {
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  C.style.width = (W * s) + 'px';
+  C.style.height = (H * s) + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ============================================================
+// FIELD CONSTANTS
+// ============================================================
+const SCALE = 8.0; // px per meter
+const FX = 150, FY = 75; // field origin (top-left of in-goal zone)
+const FW = 120 * SCALE; // 960px total length
+const FH = 70 * SCALE;  // 560px total height
+// Key X positions in pixels
+const X_TRY_L  = FX + 10 * SCALE;   // left try line
+const X_TRY_R  = FX + 110 * SCALE;  // right try line
+const X_22L    = FX + 32 * SCALE;   // left 22m
+const X_22R    = FX + 88 * SCALE;   // right 22m
+const X_10L    = FX + 50 * SCALE;   // left 10m line
+const X_10R    = FX + 70 * SCALE;   // right 10m line
+const X_MID    = FX + 60 * SCALE;   // halfway
+const Y_MID    = FY + 35 * SCALE;   // vertical center
+
+function mToX(m) { return FX + m * SCALE; }
+function mToY(m) { return FY + m * SCALE; }
+function xToM(px) { return (px - FX) / SCALE; }
+function yToM(py) { return (py - FY) / SCALE; }
+function inField(px, py) { return px >= FX && px <= FX+FW && py >= FY && py <= FY+FH; }
+function inPlay(px) { return px >= X_TRY_L && px <= X_TRY_R; }
+
+// ============================================================
+// GAUGE SYSTEM
+// ============================================================
+function gaugeColor(r) {
+  if (r < 0.25) return '#FF8C00';
+  if (r < 0.60) return '#FFD700';
+  if (r < 0.85) return '#00CC44';
+  return '#FF3322';
+}
+function gaugeName(r) {
+  if (r < 0.25) return 'orange';
+  if (r < 0.60) return 'jaune';
+  if (r < 0.85) return 'vert';
+  return 'rouge';
+}
+function drawGauge(x, y, w, h, ratio, label) {
+  ctx.fillStyle = '#222';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = gaugeColor(ratio);
+  ctx.fillRect(x, y, w * ratio, h);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, w, h);
+  if (label) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px Arial';
+    ctx.fillText(label, x, y - 2);
+  }
+}
+
+// ============================================================
+// PLAYER PROFILES (speed m/s, mass kg, radius px)
+// ============================================================
+const PROFILES = [
+  {pos:'Pilier G',   spd:5.5, mass:115, r:11, type:'prop'},
+  {pos:'Talonneur',  spd:5.8, mass:110, r:11, type:'hooker'},
+  {pos:'Pilier D',   spd:5.5, mass:115, r:11, type:'prop'},
+  {pos:'2L Gauche',  spd:6.2, mass:115, r:11, type:'lock'},
+  {pos:'2L Droit',   spd:6.2, mass:115, r:11, type:'lock'},
+  {pos:'Flanker G',  spd:7.2, mass:105, r:10, type:'flanker'},
+  {pos:'Flanker D',  spd:7.2, mass:105, r:10, type:'flanker'},
+  {pos:'Numéro 8',   spd:6.8, mass:110, r:10, type:'n8'},
+  {pos:'Demi Mêlée', spd:7.8, mass:85,  r:9,  type:'sh'},
+  {pos:'Demi Ouv.',  spd:7.8, mass:88,  r:9,  type:'fo'},
+  {pos:'Ailier G',   spd:9.2, mass:88,  r:9,  type:'wing'},
+  {pos:'Centre G',   spd:8.2, mass:95,  r:10, type:'centre'},
+  {pos:'Centre D',   spd:8.2, mass:95,  r:10, type:'centre'},
+  {pos:'Ailier D',   spd:9.2, mass:88,  r:9,  type:'wing'},
+  {pos:'Arrière',    spd:8.8, mass:88,  r:9,  type:'fb'},
+];
+
+// ============================================================
+// TEAM DATABASE
+// ============================================================
+const TEAM_DB = {
+  'NATIONS': {
+    'Europe': {
+      'France': {
+        c1:'#001F7A', c2:'#EF0E27', c3:'#FFFFFF', style:'solid',
+        players:[
+          {n:'J-B. Gros',r:82},{n:'P. Mauvaka',r:86},{n:'U. Atonio',r:84},
+          {n:'T. Flament',r:85},{n:'E. Meafou',r:86},{n:'F. Cros',r:84},
+          {n:'P. Boudehent',r:83},{n:'G. Alldritt',r:88},{n:'A. Dupont',r:97},
+          {n:'R. Ntamack',r:88},{n:'L. Bielle-Biarrey',r:88},{n:'Y. Moefana',r:84},
+          {n:'G. Fickou',r:85},{n:'D. Penaud',r:87},{n:'T. Ramos',r:87},
+          {n:'M. Lucu',r:82},{n:'M. Jalibert',r:86},{n:'C. Baille',r:83},
+          {n:'P-L. Barassi',r:81},{n:'G. Villière',r:82},{n:'J. Marchand',r:83},
+          {n:'A. Jelonch',r:80},{n:'H. Auradou',r:81},{n:'L. Barré',r:80}
+        ]
+      },
+      'Angleterre': {
+        c1:'#FFFFFF', c2:'#003399', c3:'#CC0000', style:'solid',
+        players:[
+          {n:'E. Genge',r:84},{n:'J. George',r:87},{n:'W. Stuart',r:83},
+          {n:'M. Itoje',r:92},{n:'O. Chessum',r:82},{n:'C. CunnSouth',r:81},
+          {n:'T. Curry',r:86},{n:'B. Earl',r:85},{n:'A. Mitchell',r:82},
+          {n:'G. Ford',r:85},{n:'O. Sleightholme',r:80},{n:'O. Lawrence',r:83},
+          {n:'H. Slade',r:82},{n:'T. Freeman',r:81},{n:'F. Steward',r:83},
+          {n:'H. Randall',r:81},{n:'M. Smith',r:84},{n:'B. Rodd',r:80},
+          {n:'F. Dingwall',r:79},{n:'T. Roebuck',r:80},{n:'L. Cowan-Dickie',r:81},
+          {n:'A. Dombrandt',r:83},{n:'G. Martin',r:82},{n:'E. Daly',r:81}
+        ]
+      },
+      'Irlande': {
+        c1:'#169B62', c2:'#CC2200', c3:'#FFFFFF', style:'solid',
+        players:[
+          {n:'A. Porter',r:85},{n:'D. Sheehan',r:86},{n:'T. Furlong',r:89},
+          {n:'J. Ryan',r:86},{n:'T. Beirne',r:87},{n:'P. OʼMahony',r:86},
+          {n:'J. van der Flier',r:88},{n:'C. Doris',r:88},{n:'J. Gibson-Park',r:86},
+          {n:'J. Sexton',r:89},{n:'M. Hansen',r:84},{n:'B. Aki',r:83},
+          {n:'G. Ringrose',r:86},{n:'M. Lowry',r:83},{n:'H. Keenan',r:84},
+          {n:'C. Murray',r:84},{n:'R. Byrne',r:81},{n:'C. Healy',r:85},
+          {n:'R. Herring',r:81},{n:'F. Bealham',r:81},{n:'M. Moloney',r:79},
+          {n:'R. Baird',r:82},{n:'J. Murphy',r:81},{n:'C. Frawley',r:80}
+        ]
+      },
+      'Écosse': {
+        c1:'#003B8E', c2:'#7B2D8B', c3:'#FFFFFF', style:'solid',
+        players:[
+          {n:'P. Schoeman',r:81},{n:'F. Brown',r:81},{n:'Z. Fagerson',r:83},
+          {n:'G. Gilchrist',r:82},{n:'R. Gray',r:82},{n:'M. Fagerson',r:83},
+          {n:'H. Watson',r:83},{n:'M. Fagerson',r:82},{n:'G. Horne',r:81},
+          {n:'F. Russell',r:89},{n:'D. Graham',r:82},{n:'C. Harris',r:81},
+          {n:'M. Bennett',r:80},{n:'D. van der Walt',r:81},{n:'B. Kinghorn',r:83},
+          {n:'B. White',r:80},{n:'A. Price',r:79},{n:'P. Sutherland',r:80},
+          {n:'R. Sutherland',r:81},{n:'S. Cummings',r:81},{n:'J. Ritchie',r:80},
+          {n:'L. Crosbie',r:80},{n:'D. Balshaw',r:79},{n:'T. Jordan',r:81}
+        ]
+      },
+      'Pays de Galles': {
+        c1:'#8B0000', c2:'#CC0000', c3:'#FFFFFF', style:'checker',
+        players:[
+          {n:'G. Thomas',r:79},{n:'D. Lake',r:80},{n:'T. Francis',r:79},
+          {n:'A. Beard',r:80},{n:'W. Rowlands',r:79},{n:'J. Morgan',r:80},
+          {n:'T. Faletau',r:84},{n:'T. Faletau',r:84},{n:'G. Davies',r:82},
+          {n:'D. Biggar',r:83},{n:'L. Williams',r:83},{n:'J. Davies',r:82},
+          {n:'N. Tompkins',r:79},{n:'H. Adams',r:81},{n:'L. Williams',r:82},
+          {n:'T. Williams',r:79},{n:'R. Dolan',r:78},{n:'G. Jenkins',r:79},
+          {n:'E. Dee',r:78},{n:'D. Lewis',r:79},{n:'T. Basham',r:79},
+          {n:'J. Tipuric',r:83},{n:'A. Shingler',r:79},{n:'G. Anscombe',r:80}
+        ]
+      },
+      'Italie': {
+        c1:'#003087', c2:'#FFD700', c3:'#FFFFFF', style:'solid',
+        players:[
+          {n:'D. Fischetti',r:80},{n:'G. Nicotera',r:79},{n:'S. Ferrari',r:80},
+          {n:'N. Cannone',r:81},{n:'F. Ruzza',r:80},{n:'M. Lamaro',r:83},
+          {n:'S. Negri',r:82},{n:'L. Cannone',r:81},{n:'S. Varney',r:81},
+          {n:'P. Garbisi',r:83},{n:'M. Ioane',r:82},{n:'J. Brex',r:81},
+          {n:'I. Morisi',r:79},{n:'M. Padovani',r:80},{n:'A. Trulla',r:79},
+          {n:'A. Fusco',r:78},{n:'L. Marin',r:79},{n:'M. Ceccarelli',r:78},
+          {n:'G. Lucchesi',r:79},{n:'E. Lazzaroni',r:78},{n:'R. Favretto',r:78},
+          {n:'F. Izekor',r:79},{n:'T. Menoncello',r:81},{n:'A. Zuliani',r:79}
+        ]
+      },
+      'Espagne': {
+        c1:'#CC0000', c2:'#FFD700', c3:'#1A1A1A', style:'solid',
+        players: genPlayers('Spain', 75)
+      },
+      'Géorgie': {
+        c1:'#8B0000', c2:'#FFFFFF', style:'solid',
+        players: genPlayers('Georgia', 76)
+      },
+      'Roumanie': {
+        c1:'#FFD700', c2:'#CC0000', c3:'#1A1A1A', style:'solid',
+        players: genPlayers('Romania', 72)
+      },
+      'Russie': {
+        c1:'#CC0000', c2:'#8B4513', c3:'#FFFFFF', style:'solid',
+        players: genPlayers('Russia', 71)
+      },
+      'Portugal': {
+        c1:'#8B0000', c2:'#CC0000', c3:'#006600', style:'checker',
+        players: genPlayers('Portugal', 73)
+      },
+      'Pays-Bas': {
+        c1:'#FF8C00', c2:'#FFFFFF', style:'solid',
+        players: genPlayers('Netherlands', 70)
+      },
+      'Belgique': {
+        c1:'#1A1A1A', c2:'#CC0000', c3:'#FFD700', style:'solid',
+        players: genPlayers('Belgium', 69)
+      },
+      'Allemagne': {
+        c1:'#FFFFFF', c2:'#CC0000', c3:'#FFD700', style:'solid',
+        players: genPlayers('Germany', 68)
+      },
+    },
+    'Océanie': {
+      'Nouvelle-Zélande': {
+        c1:'#1A1A1A', c2:'#FFFFFF', style:'solid',
+        players:[
+          {n:'E. de Groot',r:85},{n:'C. Taylor',r:87},{n:'T. Lomax',r:85},
+          {n:'S. Barrett',r:90},{n:'T. Vaaʼi',r:84},{n:'A. Savea',r:91},
+          {n:'W. Sititi',r:84},{n:'A. Savea',r:91},{n:'C. Roigard',r:87},
+          {n:'B. Barrett',r:91},{n:'C. Clarke',r:85},{n:'R. Ioane',r:86},
+          {n:'J. Barrett',r:88},{n:'W. Jordan',r:89},{n:'D. McKenzie',r:85},
+          {n:'C. Ratima',r:83},{n:'A. Lienert-Brown',r:83},{n:'T. Williams',r:83},
+          {n:'F. Newell',r:82},{n:'P. Tuipulotu',r:84},{n:'S. Taukeiʼaho',r:84},
+          {n:'L. Jacobson',r:82},{n:'D. Papaliʼi',r:83},{n:'S. Reece',r:85}
+        ]
+      },
+      'Australie': {
+        c1:'#FFD700', c2:'#006400', style:'solid',
+        players: genPlayers('Australia', 82)
+      },
+      'Fidji': {
+        c1:'#FFFFFF', c2:'#003087', c3:'#1A1A1A', style:'solid',
+        players: genPlayers('Fiji', 78)
+      },
+      'Samoa': {
+        c1:'#003087', c2:'#CC0000', c3:'#FFFFFF', style:'solid',
+        players: genPlayers('Samoa', 74)
+      },
+      'Tonga': {
+        c1:'#CC0000', c2:'#FFFFFF', style:'solid',
+        players: genPlayers('Tonga', 73)
+      },
+    },
+    'Afrique': {
+      'Afrique du Sud': {
+        c1:'#006400', c2:'#FFD700', style:'solid',
+        players:[
+          {n:'S. Kitshoff',r:87},{n:'B. Mbonambi',r:86},{n:'F. Malherbe',r:85},
+          {n:'E. Etzebeth',r:92},{n:'L. de Jager',r:86},{n:'P-J. Mostert',r:88},
+          {n:'S. Kolisi',r:89},{n:'D. Vermeulen',r:87},{n:'F. de Klerk',r:85},
+          {n:'H. Pollard',r:87},{n:'K. Mapimpi',r:86},{n:'D. de Allende',r:87},
+          {n:'J. Kriel',r:85},{n:'C. Kolbe',r:91},{n:'W. le Roux',r:86},
+          {n:'H. Jantjies',r:83},{n:'E. Jantjies',r:82},{n:'T. Ntubeni',r:82},
+          {n:'L. van der Merwe',r:83},{n:'L. Nkosi',r:84},{n:'J. van der Merwe',r:84},
+          {n:'R. de Haas',r:82},{n:'S. Spies',r:83},{n:'W. Papier',r:83}
+        ]
+      },
+      'Kenya': {
+        c1:'#CC0000', c2:'#FFFFFF', c3:'#1A1A1A', style:'solid',
+        players: genPlayers('Kenya', 67)
+      },
+      'Namibie': {
+        c1:'#003087', c2:'#CC0000', c3:'#FFFFFF', style:'solid',
+        players: genPlayers('Namibia', 66)
+      },
+      'Zimbabwe': {
+        c1:'#006400', c2:'#FFFFFF', style:'hstripes',
+        players: genPlayers('Zimbabwe', 64)
+      },
+    },
+    'Amériques': {
+      'Argentine': {
+        c1:'#87CEEB', c2:'#FFFFFF', style:'hstripes',
+        players:[
+          {n:'T. Gallo',r:83},{n:'J. Montoya',r:85},{n:'F. Gomez Kodela',r:82},
+          {n:'M. Alemanno',r:82},{n:'G. Petti',r:85},{n:'P. Matera',r:86},
+          {n:'M. Kremer',r:84},{n:'F. Isa',r:85},{n:'G. Bertranou',r:84},
+          {n:'N. Sanchez',r:87},{n:'E. Bello',r:82},{n:'J. de la Fuente',r:83},
+          {n:'M. Orlando',r:82},{n:'B. Moro',r:83},{n:'S. Carreras',r:84},
+          {n:'L. Gonzalez Amorosino',r:81},{n:'S. Ceverino',r:80},{n:'M. Vivas',r:80},
+          {n:'N. Tetaz Chaparro',r:79},{n:'T. Lavanini',r:83},{n:'F. Urdapilleta',r:81},
+          {n:'R. Petersen',r:80},{n:'J. Imhoff',r:83},{n:'P. Zerbino',r:82}
+        ]
+      },
+      'Uruguay': {
+        c1:'#4169E1', c2:'#FFFFFF', style:'solid',
+        players: genPlayers('Uruguay', 70)
+      },
+      'Chili': {
+        c1:'#CC0000', c2:'#003087', style:'solid',
+        players: genPlayers('Chile', 68)
+      },
+      'Canada': {
+        c1:'#CC0000', c2:'#FFD700', c3:'#FFFFFF', style:'solid',
+        players: genPlayers('Canada', 69)
+      },
+      'États-Unis': {
+        c1:'#001F7A', c2:'#FFFFFF', c3:'#CC0000', style:'solid',
+        players: genPlayers('USA', 70)
+      },
+    },
+    'Asie': {
+      'Japon': {
+        c1:'#CC0000', c2:'#FFFFFF', style:'hstripes',
+        players: genPlayers('Japan', 76)
+      },
+    },
+  },
+  'TOP 14': {
+    'Toulouse': {
+      c1:'#1A1A1A', c2:'#CC0000', style:'solid',
+      players:[
+        {n:'C. Baille',r:84},{n:'J. Marchand',r:85},{n:'D. Aldegheri',r:82},
+        {n:'T. Flament',r:85},{n:'E. Meafou',r:85},{n:'F. Cros',r:84},
+        {n:'J. Willis',r:83},{n:'S. Tolofua',r:80},{n:'A. Dupont',r:97},
+        {n:'R. Ntamack',r:88},{n:'M. Lebel',r:83},{n:'S. Chocobares',r:81},
+        {n:'P. Ahki',r:82},{n:'J.C. Mallia',r:83},{n:'T. Ramos',r:87},
+        {n:'P. Mauvaka',r:84},{n:'N. Saito',r:79},{n:'D. Ainu\'u',r:80},
+        {n:'A. Roumat',r:81},{n:'B. Kinghorn',r:82},{n:'J. Brennan',r:80},
+        {n:'A. Jelonch',r:80},{n:'G-H. Colombe',r:79},{n:'K. Gourgues',r:80}
+      ]
+    },
+    'La Rochelle': {
+      c1:'#1A1A1A', c2:'#FFD700', style:'solid',
+      players:[
+        {n:'D. Priso',r:82},{n:'P. Bourgarit',r:85},{n:'U. Atonio',r:84},
+        {n:'T. Lavault',r:80},{n:'W. Skelton',r:85},{n:'O. Jégou',r:82},
+        {n:'G. Alldritt',r:88},{n:'P. Boudehent',r:83},{n:'G. Alldritt',r:88},
+        {n:'A. Hastoy',r:82},{n:'G. Bha',r:79},{n:'P-L. Barassi',r:80},
+        {n:'J. Botia',r:82},{n:'R. Favre',r:79},{n:'B. Dulin',r:84},
+        {n:'A. Urdapilleta',r:80},{n:'T. Thomas',r:79},{n:'D. Colaud',r:80},
+        {n:'K. Vito',r:82},{n:'M. Simon',r:80},{n:'K. Praud',r:79},
+        {n:'G. Liebenberg',r:81},{n:'J. Gourdon',r:82},{n:'V. Vili',r:80}
+      ]
+    },
+    'Bordeaux-Bègles': {
+      c1:'#660000', c2:'#FFFFFF', style:'solid',
+      players:[
+        {n:'R. Wardi',r:81},{n:'M. Lamothe',r:80},{n:'T. Ben Azza',r:79},
+        {n:'M. Halagahu',r:80},{n:'C. Maynadier',r:79},{n:'R. Taofifenua',r:80},
+        {n:'Y. Naqalevu',r:81},{n:'A. Roumat',r:81},{n:'M. Lucu',r:82},
+        {n:'M. Jalibert',r:86},{n:'L. Bielle-Biarrey',r:88},{n:'Y. Moefana',r:84},
+        {n:'N. Depoortère',r:82},{n:'T. Attissogbé',r:82},{n:'L. Barré',r:80},
+        {n:'N. Le Garrec',r:79},{n:'C. Lopez',r:80},{n:'F. Gimbert',r:79},
+        {n:'C. Buros',r:79},{n:'A. Frisch',r:80},{n:'T. Dachary',r:79},
+        {n:'P. Boudehent',r:81},{n:'P. Willemse',r:82},{n:'T. Rasolofoson',r:79}
+      ]
+    },
+    'Clermont': { c1:'#FFD700', c2:'#003087', style:'solid', players: genPlayers('Clermont', 80) },
+    'Racing 92': { c1:'#87CEEB', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Racing', 80) },
+    'Stade Français': { c1:'#FF69B4', c2:'#003087', style:'solid', players: genPlayers('StadeFr', 78) },
+    'Toulon': { c1:'#CC0000', c2:'#1A1A1A', style:'solid', players: genPlayers('Toulon', 82) },
+    'Montpellier': { c1:'#003087', c2:'#FFFFFF', style:'solid', players: genPlayers('Montpellier', 78) },
+    'Lyon': { c1:'#1A1A1A', c2:'#CC0000', style:'solid', players: genPlayers('Lyon', 77) },
+    'Castres': { c1:'#001F7A', c2:'#FFFFFF', style:'solid', players: genPlayers('Castres', 77) },
+    'Bayonne': { c1:'#87CEEB', c2:'#FFFFFF', style:'solid', players: genPlayers('Bayonne', 75) },
+    'Perpignan': { c1:'#FFD700', c2:'#CC0000', style:'solid', players: genPlayers('Perpignan', 75) },
+    'Pau': { c1:'#006400', c2:'#FFFFFF', style:'solid', players: genPlayers('Pau', 75) },
+    'Montauban': { c1:'#006400', c2:'#1A1A1A', style:'solid', players: genPlayers('Montauban', 74) },
+  },
+  'PRO D2': {
+    'Grenoble': { c1:'#003087', c2:'#CC0000', style:'solid', players: genPlayers('Grenoble', 73) },
+    'Brive': { c1:'#FFFFFF', c2:'#1A1A1A', style:'solid', players: genPlayers('Brive', 73) },
+    'Biarritz': { c1:'#FFFFFF', c2:'#CC0000', style:'solid', players: genPlayers('Biarritz', 73) },
+    'Oyonnax': { c1:'#CC0000', c2:'#1A1A1A', style:'solid', players: genPlayers('Oyonnax', 72) },
+    'Nevers': { c1:'#FFD700', c2:'#003087', style:'solid', players: genPlayers('Nevers', 72) },
+    'Agen': { c1:'#001F7A', c2:'#FFFFFF', style:'solid', players: genPlayers('Agen', 72) },
+    'Aurillac': { c1:'#CC0000', c2:'#003087', style:'solid', players: genPlayers('Aurillac', 71) },
+    'Béziers': { c1:'#CC0000', c2:'#001F7A', style:'solid', players: genPlayers('Beziers', 71) },
+    'Carcassonne': { c1:'#FFD700', c2:'#1A1A1A', style:'solid', players: genPlayers('Carcassonne', 71) },
+    'Colomiers': { c1:'#FFFFFF', c2:'#003087', style:'solid', players: genPlayers('Colomiers', 70) },
+    'Dax': { c1:'#CC0000', c2:'#FFFFFF', style:'solid', players: genPlayers('Dax', 70) },
+    'Mont-de-Marsan': { c1:'#FFD700', c2:'#1A1A1A', style:'hstripes', players: genPlayers('MdM', 70) },
+    'Vannes': { c1:'#003087', c2:'#FFFFFF', style:'solid', players: genPlayers('Vannes', 70) },
+    'Valence-Romans': { c1:'#1A1A1A', c2:'#FFFFFF', style:'checker', players: genPlayers('VRDrome', 70) },
+    'Provence': { c1:'#1A1A1A', c2:'#FFFFFF', style:'solid', players: genPlayers('Provence', 70) },
+    'Soyaux-Angoulême': { c1:'#6A0DAD', c2:'#FFFFFF', style:'solid', players: genPlayers('Soyaux', 70) },
+  },
+  'PREMIERSHIP': {
+    'Bath': { c1:'#001F7A', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Bath', 82) },
+    'Bristol': { c1:'#001F7A', c2:'#FFFFFF', style:'solid', players: genPlayers('Bristol', 80) },
+    'Exeter': { c1:'#1A1A1A', c2:'#FFD700', style:'solid', players: genPlayers('Exeter', 80) },
+    'Gloucester': { c1:'#CC0000', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Gloucester', 79) },
+    'Harlequins': { c1:'#40E0D0', c2:'#CC0000', style:'checker4', players: genPlayers('Harlequins', 80) },
+    'Leicester': { c1:'#006400', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Leicester', 81) },
+    'Newcastle': { c1:'#1A1A1A', c2:'#CC0000', style:'solid', players: genPlayers('Newcastle', 77) },
+    'Northampton': { c1:'#006400', c2:'#1A1A1A', style:'solid', players: genPlayers('Northampton', 80) },
+    'Sale': { c1:'#001F7A', c2:'#FFFFFF', style:'solid', players: genPlayers('Sale', 79) },
+    'Saracens': { c1:'#1A1A1A', c2:'#CC0000', style:'solid', players: genPlayers('Saracens', 82) },
+  },
+  'URC': {
+    'Leinster': { c1:'#003087', c2:'#FFFFFF', style:'solid', players: genPlayers('Leinster', 86) },
+    'Munster': { c1:'#CC0000', c2:'#FFFFFF', style:'solid', players: genPlayers('Munster', 82) },
+    'Ulster': { c1:'#001F7A', c2:'#FFFFFF', style:'solid', players: genPlayers('Ulster', 80) },
+    'Connacht': { c1:'#006400', c2:'#90EE90', style:'solid', players: genPlayers('Connacht', 78) },
+    'Glasgow': { c1:'#001F7A', c2:'#40E0D0', style:'hstripes', players: genPlayers('Glasgow', 83) },
+    'Edinburgh': { c1:'#001F7A', c2:'#FF8C00', style:'solid', players: genPlayers('Edinburgh', 79) },
+    'Cardiff': { c1:'#001F7A', c2:'#87CEEB', style:'hstripes', players: genPlayers('Cardiff', 77) },
+    'Dragons': { c1:'#FFD700', c2:'#1A1A1A', style:'solid', players: genPlayers('Dragons', 75) },
+    'Ospreys': { c1:'#1A1A1A', c2:'#FFD700', style:'solid', players: genPlayers('Ospreys', 77) },
+    'Scarlets': { c1:'#CC0000', c2:'#FFFFFF', style:'solid', players: genPlayers('Scarlets', 77) },
+    'Bulls': { c1:'#87CEEB', c2:'#001F7A', style:'solid', players: genPlayers('Bulls', 83) },
+    'Sharks': { c1:'#1A1A1A', c2:'#FFFFFF', style:'solid', players: genPlayers('Sharks', 80) },
+    'Stormers': { c1:'#003087', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Stormers', 82) },
+    'Lions': { c1:'#CC0000', c2:'#1A1A1A', style:'solid', players: genPlayers('Lions', 78) },
+    'Trevise': { c1:'#006400', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Trevise', 76) },
+    'Zebre': { c1:'#003087', c2:'#FFD700', style:'solid', players: genPlayers('Zebre', 72) },
+  },
+  'SUPER RUGBY': {
+    'Blues': { c1:'#001F7A', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Blues', 84) },
+    'Crusaders': { c1:'#CC0000', c2:'#1A1A1A', style:'solid', players: genPlayers('Crusaders', 86) },
+    'Chiefs': { c1:'#1A1A1A', c2:'#CC0000', style:'solid', players: genPlayers('Chiefs', 84) },
+    'Hurricanes': { c1:'#FFD700', c2:'#1A1A1A', style:'hstripes', players: genPlayers('Hurricanes', 83) },
+    'Highlanders': { c1:'#001F7A', c2:'#FFD700', style:'solid', players: genPlayers('Highlanders', 82) },
+    'Brumbies': { c1:'#FFD700', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Brumbies', 82) },
+    'Reds': { c1:'#660000', c2:'#001F7A', style:'solid', players: genPlayers('Reds', 80) },
+    'Waratahs': { c1:'#87CEEB', c2:'#001F7A', style:'solid', players: genPlayers('Waratahs', 80) },
+    'Western Force': { c1:'#003087', c2:'#001F7A', style:'solid', players: genPlayers('WForce', 79) },
+    'Fijian Drua': { c1:'#003087', c2:'#FFFFFF', style:'solid', players: genPlayers('FDrua', 78) },
+    'Moana Pasifika': { c1:'#40E0D0', c2:'#FFD700', style:'solid', players: genPlayers('Moana', 77) },
+  },
+  'RÉTRO': {
+    'France 1999': { c1:'#001F7A', c2:'#EF0E27', style:'solid', players: genPlayers('FR1999', 86) },
+    'France 2007': { c1:'#001F7A', c2:'#EF0E27', style:'solid', players: genPlayers('FR2007', 87) },
+    'NZ 1995': { c1:'#1A1A1A', c2:'#FFFFFF', style:'solid', players: genPlayers('NZ1995', 91) },
+    'NZ 2015': { c1:'#1A1A1A', c2:'#FFFFFF', style:'solid', players: genPlayers('NZ2015', 93) },
+    'NZ 2023': { c1:'#1A1A1A', c2:'#FFFFFF', style:'solid', players: genPlayers('NZ2023', 92) },
+    'Afrique du Sud 2019': { c1:'#006400', c2:'#FFD700', style:'solid', players: genPlayers('SA2019', 93) },
+    'Afrique du Sud 2023': { c1:'#006400', c2:'#FFD700', style:'solid', players: genPlayers('SA2023', 94) },
+    'Angleterre 2003': { c1:'#FFFFFF', c2:'#CC0000', style:'solid', players: genPlayers('ENG2003', 92) },
+    'Australie 1999': { c1:'#FFD700', c2:'#006400', style:'solid', players: genPlayers('AUS1999', 91) },
+    'Argentine 2007': { c1:'#87CEEB', c2:'#FFFFFF', style:'hstripes', players: genPlayers('ARG2007', 88) },
+    'Japon 2019': { c1:'#CC0000', c2:'#FFFFFF', style:'hstripes', players: genPlayers('JPN2019', 85) },
+  },
+  'SPECIAL': {
+    'Barbarians': { c1:'#1A1A1A', c2:'#FFFFFF', style:'hstripes', players: genPlayers('Baabaas', 90) },
+    'Barbarians FR': { c1:'#003087', c2:'#CC0000', style:'hstripes', players: genPlayers('BaabaasFR', 88) },
+    'Lions 2025': { c1:'#CC0000', c2:'#FFFFFF', style:'solid', players: genPlayers('Lions2025', 91) },
+    'Dream Team 2025': { c1:'#1A1A1A', c2:'#FFD700', style:'solid', players: genPlayers('Dream2025', 95) },
+  },
+};
+
+// ============================================================
+// GENERIC PLAYER GENERATOR
+// ============================================================
+// ============================================================
+// INPUT - GAMEPAD API
+// ============================================================
+const INPUT = {
+  gp: null,
+  prev: {},
+  curr: {},
+  axes: [0,0,0,0],
+  // Button indices for Xbox controller
+  A:0, B:1, X:2, Y:3, LB:4, RB:5, LT:6, RT:7,
+  SEL:8, START:9,
+  DUP:12, DDOWN:13, DLEFT:14, DRIGHT:15,
+
+  poll() {
+    const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+    this.gp = null;
+    for (let g of gps) { if (g) { this.gp = g; break; } }
+    if (!this.gp) return;
+    this.prev = {...this.curr};
+    this.curr = {};
+    for (let i = 0; i < this.gp.buttons.length; i++) {
+      this.curr[i] = this.gp.buttons[i].pressed || this.gp.buttons[i].value > 0.5;
+    }
+    this.axes = [...this.gp.axes];
+    // Handle LT/RT as axes if needed
+    if (this.gp.buttons[6]) this.ltVal = this.gp.buttons[6].value;
+    if (this.gp.buttons[7]) this.rtVal = this.gp.buttons[7].value;
+  },
+  pressed(btn) { return this.curr[btn] && !this.prev[btn]; },
+  held(btn)    { return !!this.curr[btn]; },
+  released(btn){ return !this.curr[btn] && !!this.prev[btn]; },
+  lx() { return Math.abs(this.axes[0]||0) > 0.15 ? (this.axes[0]||0) : 0; },
+  ly() { return Math.abs(this.axes[1]||0) > 0.15 ? (this.axes[1]||0) : 0; },
+  rx() { return Math.abs(this.axes[2]||0) > 0.15 ? (this.axes[2]||0) : 0; },
+  ry() { return Math.abs(this.axes[3]||0) > 0.15 ? (this.axes[3]||0) : 0; },
+
+  // Keyboard fallback
+  kb: {},
+  connected: false,
+};
+
+// Keyboard fallback for testing
+window.addEventListener('keydown', e => { INPUT.kb[e.code] = true; });
+window.addEventListener('keyup',   e => { INPUT.kb[e.code] = false; });
+window.addEventListener('gamepadconnected',    e => { INPUT.connected = true; console.log('Gamepad:', e.gamepad.id); });
+window.addEventListener('gamepaddisconnected', e => { INPUT.connected = false; });
+
+function kbAxis() {
+  // Keyboard WASD for left stick
+  let x = 0, y = 0;
+  if (INPUT.kb['ArrowLeft']  || INPUT.kb['KeyA']) x = -1;
+  if (INPUT.kb['ArrowRight'] || INPUT.kb['KeyD']) x = 1;
+  if (INPUT.kb['ArrowUp']    || INPUT.kb['KeyW']) y = -1;
+  if (INPUT.kb['ArrowDown']  || INPUT.kb['KeyS']) y = 1;
+  return {x, y};
+}
+function kbRAxis() {
+  let x = 0, y = 0;
+  if (INPUT.kb['KeyJ']) x = -1;
+  if (INPUT.kb['KeyL']) x = 1;
+  if (INPUT.kb['KeyI']) y = -1;
+  if (INPUT.kb['KeyK']) y = 1;
+  return {x, y};
+}
+function getLX() { return INPUT.gp ? INPUT.lx() : kbAxis().x; }
+function getLY() { return INPUT.gp ? INPUT.ly() : kbAxis().y; }
+function getRX() { return INPUT.gp ? INPUT.rx() : kbRAxis().x; }
+function getRY() { return INPUT.gp ? INPUT.ry() : kbRAxis().y; }
+function btnA()  { return INPUT.gp ? INPUT.held(INPUT.A) : INPUT.kb['Enter'] || INPUT.kb['KeyZ']; }
+function btnB()  { return INPUT.gp ? INPUT.held(INPUT.B) : INPUT.kb['Backspace'] || INPUT.kb['KeyX']; }
+function btnX()  { return INPUT.gp ? INPUT.held(INPUT.X) : INPUT.kb['KeyC']; }
+function btnY()  { return INPUT.gp ? INPUT.held(INPUT.Y) : INPUT.kb['KeyV']; }
+function btnAP() { return INPUT.gp ? INPUT.pressed(INPUT.A) : (INPUT.kb['Enter'] && !INPUT._prevKb?.['Enter']); }
+function btnBP() { return INPUT.gp ? INPUT.pressed(INPUT.B) : false; }
+function btnXP() { return INPUT.gp ? INPUT.pressed(INPUT.X) : false; }
+function btnYP() { return INPUT.gp ? INPUT.pressed(INPUT.Y) : false; }
+function btnStart() { return INPUT.gp ? INPUT.pressed(INPUT.START) : INPUT.kb['Escape']; }
+function btnSel()   { return INPUT.gp ? INPUT.pressed(INPUT.SEL) : INPUT.kb['Tab']; }
+function btnLT()    { return INPUT.gp ? INPUT.held(INPUT.LT) : INPUT.kb['ShiftLeft']; }
+function btnRT()    { return INPUT.gp ? INPUT.held(INPUT.RT) : INPUT.kb['Space']; }
+function btnRTp()   { return INPUT.gp ? INPUT.pressed(INPUT.RT) : (INPUT.kb['Space'] && !INPUT._prevKb?.['Space']); }
+function dUp()   { return INPUT.gp ? INPUT.pressed(INPUT.DUP)    : (INPUT.kb['Numpad8'] && !INPUT._prevKb?.['Numpad8']); }
+function dDown() { return INPUT.gp ? INPUT.pressed(INPUT.DDOWN)  : (INPUT.kb['Numpad2'] && !INPUT._prevKb?.['Numpad2']); }
+function dLeft() { return INPUT.gp ? INPUT.pressed(INPUT.DLEFT)  : (INPUT.kb['Numpad4'] && !INPUT._prevKb?.['Numpad4']); }
+function dRight(){ return INPUT.gp ? INPUT.pressed(INPUT.DRIGHT) : (INPUT.kb['Numpad6'] && !INPUT._prevKb?.['Numpad6']); }
+
+// ============================================================
+// BALL CLASS
+// ============================================================
+class Ball {
+  constructor() { this.reset(); }
+  reset(x = X_MID, y = Y_MID) {
+    this.x = x; this.y = y;
+    this.vx = 0; this.vy = 0;
+    this.vz = 0; this.z = 0;    // height
+    this.onGround = true;
+    this.carrier = null;
+    this.team = -1;             // which team has it
+    this.loose = false;
+    this.inTouch = false;
+    this.touchX = 0; this.touchY = 0;
+    this.kickType = null;       // 'grubber','clearance','drop','upunder'
+    this.spinning = 0;
+    this.shadowAlpha = 0.3;
+  }
+  update(dt) {
+    if (this.carrier) {
+      this.x = this.carrier.x;
+      this.y = this.carrier.y;
+      this.z = 0; this.vz = 0;
+      this.onGround = true;
+      return;
+    }
+    const gravity = 9.8 * SCALE * 3; // visual gravity
+    const friction = 0.88;
+    if (!this.onGround) {
+      this.vz -= gravity * dt;
+      this.z += this.vz * dt;
+      if (this.z <= 0) {
+        this.z = 0;
+        // rugby oval bounce - unpredictable
+        const bounceY = 0.45 + Math.random() * 0.2;
+        this.vz = Math.abs(this.vz) * bounceY;
+        // lateral wobble on bounce
+        const wobble = (Math.random() - 0.5) * 50;
+        const wob2 = (Math.random() - 0.5) * 50;
+        if (this.vz < 30) { this.vz = 0; this.onGround = true; }
+        if (this.kickType !== 'grubber') {
+          this.vx += wobble;
+          this.vy += wob2;
+        }
+      }
+    } else {
+      // Rolling friction
+      this.vx *= Math.pow(friction, dt * 60);
+      this.vy *= Math.pow(friction, dt * 60);
+      if (Math.abs(this.vx) < 0.5 && Math.abs(this.vy) < 0.5) {
+        this.vx = 0; this.vy = 0;
+      }
+    }
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.spinning += 8 * dt;
+
+    // Touch detection
+    if (this.x < FX || this.x > FX + FW || this.y < FY || this.y > FY + FH) {
+      if (!this.inTouch) {
+        this.inTouch = true;
+        this.touchX = this.x;
+        this.touchY = Math.max(FY, Math.min(FY + FH, this.y));
+        this.vx = 0; this.vy = 0; this.vz = 0;
+        this.x = Math.max(FX, Math.min(FX + FW, this.x));
+        this.y = Math.max(FY, Math.min(FY + FH, this.y));
+      }
+    }
+    // Dead ball
+    if (this.x < FX - 20 || this.x > FX + FW + 20) {
+      this.inTouch = true;
+      this.vx = 0; this.vy = 0;
+    }
+  }
+  kick(vx, vy, vz, type) {
+    this.carrier = null;
+    this.loose = true;
+    this.inTouch = false;
+    this.vx = vx; this.vy = vy; this.vz = vz;
+    this.z = 0; this.onGround = false;
+    this.kickType = type;
+    this.team = -1;
+  }
+  draw() {
+    const bx = this.x, by = this.y - this.z * 0.5;
+    // Shadow
+    if (this.z > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 0.4 - this.z / 400);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath();
+      ctx.ellipse(this.x, this.y, 9, 5, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+    // Ball
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(this.spinning * 0.1);
+    ctx.fillStyle = '#c8860a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10, 6.5, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#f5d5a0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-9, 0); ctx.lineTo(9, 0);
+    ctx.stroke();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10, 6.5, 0, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// PLAYER CLASS
+// ============================================================
+class Player {
+  constructor(teamIdx, shirtNum, posIdx, x, y, name, rating) {
+    this.teamIdx = teamIdx;  // 0 = player team, 1 = CPU
+    this.shirtNum = shirtNum;
+    this.posIdx = posIdx;
+    this.x = x; this.y = y;
+    this.name = name;
+    this.rating = rating;
+    this.profile = PROFILES[posIdx];
+    this.vx = 0; this.vy = 0;
+    this.speed = 0;
+    this.dir = teamIdx === 0 ? 0 : Math.PI; // facing direction
+    this.hasBall = false;
+    this.tackling = false;
+    this.tackled = false;
+    this.inRuck = false;
+    this.stamina = 1.0;
+    this.sprint = 1.0;
+    this.isSprinting = false;
+    this.chargeGauge = 0;
+    this.tackleGauge = 0;
+    this.passGauge = 0;
+    this.isCharging = false;
+    this.isTackling = false;
+    this.tackleType = null;
+    this.stunTime = 0;       // time stunned/on ground after tackle
+    this.lastAction = 0;
+    this.injured = false;
+    this.yellowCard = false;
+    this.yellowTime = 0;
+    this.onGround = false;
+    this.groundTime = 0;
+    this.isSelected = false;
+    this.targetX = x; this.targetY = y;
+    this.aiState = 'idle';
+    this.controlRadius = this.profile.r * 3; // for auto-control switch
+    this.staminaRecovery = 0;
+    this.sprintRecovery = 0;
+    // double-tap tracking
+    this.lastBtnTime = {};
+    this.rtCount = 0;
+    this.rtLastTime = 0;
+  }
+
+  maxSpeed() {
+    const base = this.profile.spd * SCALE; // convert m/s to px/s
+    const staminaMult = 0.6 + 0.4 * this.stamina;
+    const sprintMult = this.isSprinting && this.sprint > 0 ? 1.3 : 1.0;
+    return base * staminaMult * sprintMult;
+  }
+
+  update(dt) {
+    if (this.stunTime > 0) {
+      this.stunTime -= dt;
+      this.vx *= 0.85;
+      this.vy *= 0.85;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      return;
+    }
+    if (this.onGround) {
+      this.groundTime -= dt;
+      if (this.groundTime <= 0) {
+        this.onGround = false;
+        this.inRuck = false;
+      }
+      return;
+    }
+    // Stamina drain
+    if (this.isSprinting && this.sprint > 0) {
+      this.sprint -= dt * 0.04;
+      this.stamina -= dt * 0.003;
+    } else {
+      this.sprint = Math.min(1, this.sprint + dt * 0.08);
+    }
+    this.stamina = Math.min(1, this.stamina + dt * 0.001);
+
+    // Movement
+    const spd = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+    this.speed = spd;
+    if (spd > 0) {
+      this.dir = Math.atan2(this.vy, this.vx);
+    }
+
+    // Friction
+    const friction = 0.82;
+    this.vx *= Math.pow(friction, dt * 60);
+    this.vy *= Math.pow(friction, dt * 60);
+
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // Clamp to field
+    this.x = Math.max(FX - 10, Math.min(FX + FW + 10, this.x));
+    this.y = Math.max(FY, Math.min(FY + FH, this.y));
+
+    // Yellow card countdown
+    if (this.yellowCard) {
+      this.yellowTime -= dt;
+      if (this.yellowTime <= 0) this.yellowCard = false;
+    }
+  }
+
+  move(dx, dy) {
+    if (this.onGround || this.stunTime > 0) return;
+    const mag = Math.sqrt(dx*dx + dy*dy);
+    if (mag < 0.01) return;
+    const nx = dx/mag, ny = dy/mag;
+    const spd = this.maxSpeed();
+    const accel = 600;
+    this.vx += nx * accel * (1/60);
+    this.vy += ny * accel * (1/60);
+    const curSpd = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+    if (curSpd > spd) {
+      this.vx = this.vx/curSpd * spd;
+      this.vy = this.vy/curSpd * spd;
+    }
+  }
+
+  dist(other) {
+    const dx = this.x - other.x, dy = this.y - other.y;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+  distPt(x, y) {
+    const dx = this.x - x, dy = this.y - y;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+
+  draw(teamColor, border1, border2, jerseyStyle) {
+    const r = this.profile.r;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    // Stun flash
+    if (this.onGround) {
+      ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() * 0.01));
+    }
+
+    // Jersey - circle with team colors
+    this.drawJersey(r, teamColor, border1, border2, jerseyStyle);
+
+    // Number
+    ctx.fillStyle = this.getNumColor(teamColor);
+    ctx.font = `bold ${r > 9 ? 9 : 8}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.shirtNum, 0, 0);
+
+    // Ball indicator
+    if (this.hasBall) {
+      ctx.fillStyle = '#c8860a';
+      ctx.beginPath();
+      ctx.ellipse(r + 2, -3, 5, 3, -0.3, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // Selection indicator
+    if (this.isSelected) {
+      ctx.strokeStyle = '#00FFFF';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 4, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Stamina bar
+    ctx.fillStyle = '#333';
+    ctx.fillRect(-r, r + 2, r*2, 2);
+    ctx.fillStyle = this.stamina > 0.5 ? '#44ff44' : this.stamina > 0.25 ? '#ffaa00' : '#ff3300';
+    ctx.fillRect(-r, r + 2, r*2 * this.stamina, 2);
+
+    // Yellow card indicator
+    if (this.yellowCard) {
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(r - 4, -r, 4, 6);
+    }
+
+    ctx.restore();
+  }
+
+  drawJersey(r, c1, c2, c3, style) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI*2);
+    if (style === 'hstripes') {
+      // Horizontal stripes
+      ctx.fillStyle = c1;
+      ctx.fill();
+      ctx.clip();
+      ctx.fillStyle = c2;
+      for (let i = -r; i < r; i += 5) {
+        if (Math.floor((i + r) / 5) % 2 === 0) {
+          ctx.fillRect(-r, i, r*2, 5);
+        }
+      }
+    } else if (style === 'vstripes') {
+      ctx.fillStyle = c1;
+      ctx.fill();
+      ctx.clip();
+      ctx.fillStyle = c2;
+      for (let i = -r; i < r; i += 5) {
+        if (Math.floor((i + r) / 5) % 2 === 0) {
+          ctx.fillRect(i, -r, 5, r*2);
+        }
+      }
+    } else if (style === 'checker') {
+      ctx.fillStyle = c1;
+      ctx.fill();
+      ctx.clip();
+      ctx.fillStyle = c2;
+      for (let ix = -r; ix < r; ix += 6) {
+        for (let iy = -r; iy < r; iy += 6) {
+          if ((Math.floor((ix+r)/6) + Math.floor((iy+r)/6)) % 2 === 0) {
+            ctx.fillRect(ix, iy, 6, 6);
+          }
+        }
+      }
+    } else if (style === 'checker4') {
+      // Harlequins 4-color
+      ctx.fillStyle = '#40E0D0'; ctx.fill();
+      ctx.clip();
+      ctx.fillStyle = '#CC0000';
+      ctx.fillRect(0, -r, r, r);
+      ctx.fillStyle = '#660000';
+      ctx.fillRect(-r, 0, r, r);
+      ctx.fillStyle = '#87CEEB';
+      ctx.fillRect(0, 0, r, r);
+    } else {
+      // Solid
+      ctx.fillStyle = c1;
+      ctx.fill();
+    }
+    // Border
+    ctx.restore(); ctx.save(); ctx.translate(this.x, this.y);
+    if (c2) {
+      ctx.strokeStyle = c2;
+      ctx.lineWidth = c3 ? 2 : 2.5;
+      ctx.beginPath(); ctx.arc(0, 0, this.profile.r, 0, Math.PI*2); ctx.stroke();
+    }
+    if (c3) {
+      ctx.strokeStyle = c3;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, this.profile.r - 2.5, 0, Math.PI*2); ctx.stroke();
+    }
+  }
+
+  getNumColor(bgColor) {
+    // Simple luminance check
+    const hex = bgColor.replace('#','');
+    const r = parseInt(hex.substr(0,2)||'ff',16);
+    const g = parseInt(hex.substr(2,2)||'ff',16);
+    const b = parseInt(hex.substr(4,2)||'ff',16);
+    const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+    return lum > 0.45 ? '#111111' : '#FFFFFF';
+  }
+}
+
+// ============================================================
+// TACKLE BLOCK
+// ============================================================
+class TackleBlock {
+  constructor(carrier, tackler, type, cg, tg) {
+    this.carrier = carrier;
+    this.tackler = tackler;
+    this.type = type; // 'legs','waist','arms'
+    this.cg = cg;     // charge gauge ratio
+    this.tg = tg;     // tackle gauge ratio
+    this.x = carrier.x;
+    this.y = carrier.y;
+    this.duration = 0;
+    this.maxDuration = 1.2;
+    this.fallen = false;
+    this.penalty = null;
+    this.yellowCard = false;
+    this.canPassAfter = (type !== 'arms');
+    this.passAfterDone = false;
+
+    // Forward pass on red charge
+    this.forwardBall = (cg > 0.85);
+
+    // Momentum conservation
+    const m1 = carrier.profile.mass, m2 = tackler.profile.mass;
+    const total = m1 + m2;
+    this.vx = (carrier.vx * m1 + tackler.vx * m2) / total;
+    this.vy = (carrier.vy * m1 + tackler.vy * m2) / total;
+
+    // Determine outcome
+    const outcome = this.getOutcome();
+    this.advance = outcome.advance; // pixels to advance
+    this.balanceTime = outcome.balance * this.maxDuration;
+    this.penalty = outcome.penalty || null;
+    this.yellowCard = outcome.yellowCard || false;
+    this.brokenTackle = outcome.broken || false;
+
+    // Clamp block in field
+    this.targetX = Math.max(FX, Math.min(FX + FW, this.x + this.vx * 0.3 + this.advance * (carrier.teamIdx === 0 ? 1 : -1)));
+    this.targetY = Math.max(FY, Math.min(FY + FH, this.y + this.vy * 0.15));
+
+    carrier.tackling = true; carrier.stunTime = 0.1;
+    tackler.tackling = true; tackler.stunTime = 0.1;
+    carrier.hasBall = !this.forwardBall;
+  }
+
+  getOutcome() {
+    const cn = gaugeName(this.cg);
+    const tn = gaugeName(this.tg);
+    const t = this.type;
+
+    // Lookup table [advance(px), balanceRatio, penalty, broken, yellowCard]
+    const T = {
+      legs: {
+        'orange-rouge': {advance:0,   balance:0,    penalty:'Cathédrale',  yellowCard:true},
+        'jaune-rouge':  {advance:0,   balance:0,    penalty:'Cathédrale',  yellowCard:true},
+        'vert-rouge':   {advance:0,   balance:0,    penalty:'Cathédrale',  yellowCard:true},
+        'rouge-rouge':  {advance:0,   balance:0,    penalty:'Cathédrale',  yellowCard:true},
+        'vert-vert':    {advance:0,   balance:0.1},
+        'vert-jaune':   {advance:20,  balance:0.3},
+        'vert-orange':  {advance:80,  balance:1.0,  broken:true},
+        'jaune-vert':   {advance:0,   balance:0.1},
+        'jaune-jaune':  {advance:15,  balance:0.3},
+        'jaune-orange': {advance:35,  balance:0.5},
+        'orange-vert':  {advance:-10, balance:0.1},
+        'orange-jaune': {advance:0,   balance:0.2},
+        'orange-orange':{advance:10,  balance:0.3},
+        'rouge-vert':   {advance:0,   balance:0,    broken:false}, // en-avant
+        'rouge-jaune':  {advance:0,   balance:0,    broken:false},
+        'rouge-orange': {advance:0,   balance:0,    broken:false},
+      },
+      waist: {
+        'orange-rouge': {advance:0,   balance:0,    penalty:'Épaule'},
+        'jaune-rouge':  {advance:0,   balance:0,    penalty:'Épaule'},
+        'vert-rouge':   {advance:0,   balance:0,    penalty:'Épaule'},
+        'rouge-rouge':  {advance:0,   balance:0,    penalty:'Épaule'},
+        'vert-vert':    {advance:15,  balance:0.4},
+        'vert-jaune':   {advance:30,  balance:0.6},
+        'vert-orange':  {advance:80,  balance:1.0,  broken:true},
+        'jaune-vert':   {advance:-10, balance:0.2},
+        'jaune-jaune':  {advance:15,  balance:0.4},
+        'jaune-orange': {advance:30,  balance:0.5},
+        'orange-vert':  {advance:-20, balance:0.1},
+        'orange-jaune': {advance:-10, balance:0.2},
+        'orange-orange':{advance:0,   balance:0.3},
+        'rouge-vert':   {advance:0,   balance:0},
+        'rouge-jaune':  {advance:0,   balance:0},
+        'rouge-orange': {advance:0,   balance:0},
+      },
+      arms: {
+        'orange-rouge': {advance:0,   balance:0,    penalty:'Haut',       yellowCard:true},
+        'jaune-rouge':  {advance:0,   balance:0,    penalty:'Haut',       yellowCard:true},
+        'vert-rouge':   {advance:0,   balance:0,    penalty:'Haut',       yellowCard:true},
+        'rouge-rouge':  {advance:0,   balance:0,    penalty:'Haut',       yellowCard:true},
+        'vert-vert':    {advance:40,  balance:0.7},
+        'vert-jaune':   {advance:55,  balance:0.8},
+        'vert-orange':  {advance:80,  balance:1.0,  broken:true},
+        'jaune-vert':   {advance:25,  balance:0.6},
+        'jaune-jaune':  {advance:35,  balance:0.7},
+        'jaune-orange': {advance:50,  balance:0.8},
+        'orange-vert':  {advance:-25, balance:0.1},
+        'orange-jaune': {advance:-10, balance:0.2},
+        'orange-orange':{advance:0,   balance:0.3},
+        'rouge-vert':   {advance:0,   balance:0},
+        'rouge-jaune':  {advance:0,   balance:0},
+        'rouge-orange': {advance:0,   balance:0},
+      }
+    };
+    const key = cn + '-' + tn;
+    return T[t][key] || {advance:0, balance:0.2};
+  }
+
+  update(dt, match) {
+    if (this.fallen) return;
+    this.duration += dt;
+
+    if (this.brokenTackle) {
+      // Carrier breaks free
+      this.carrier.tackling = false;
+      this.tackler.stunTime = 0.5;
+      this.tackler.tackling = false;
+      this.fallen = true;
+      return;
+    }
+
+    // Move block
+    const tx = this.targetX, ty = this.targetY;
+    const prog = Math.min(1, this.duration / Math.max(0.01, this.balanceTime));
+    this.x += (tx - this.x) * dt * 3;
+    this.y += (ty - this.y) * dt * 3;
+    this.carrier.x = this.x;
+    this.carrier.y = this.y;
+    this.tackler.x = this.x - (this.carrier.teamIdx === 0 ? -15 : 15);
+    this.tackler.y = this.y;
+
+    // Forward ball scatter
+    if (this.forwardBall && !this._ballScattered) {
+      this._ballScattered = true;
+      match.ball.carrier = null;
+      match.ball.x = this.x;
+      match.ball.y = this.y;
+      // Ball goes FORWARD (toward opponent try line)
+      const fwd = this.carrier.teamIdx === 0 ? 1 : -1;
+      match.ball.vx = fwd * (120 + Math.random() * 60);
+      match.ball.vy = (Math.random() - 0.5) * 80;
+      match.ball.vz = 80 + Math.random() * 60;
+      match.ball.onGround = false;
+      match.ball.loose = true;
+      match.ball.team = -1;
+      match.events.push({type:'forward_pass', msg:'En-avant !', dur:2});
+    }
+
+    if (this.duration >= Math.max(0.3, this.balanceTime) || this.advance < -5) {
+      this.fallen = true;
+      this.carrier.onGround = true;
+      this.carrier.groundTime = 1.2;
+      this.carrier.hasBall = !this.forwardBall && !this._ballScattered;
+      this.carrier.tackling = false;
+      this.tackler.onGround = this.type !== 'legs'; // only goes down on legs
+      this.tackler.groundTime = 0.8;
+      this.tackler.tackling = false;
+      if (this.penalty) {
+        match.events.push({type:'penalty', side: this.tackler.teamIdx, msg:'Pénalité: plaquage ' + this.penalty, dur:3});
+        match.pendingPenalty = {side: this.carrier.teamIdx, x: this.x, y: this.y, reason: this.penalty};
+        if (this.yellowCard) {
+          this.tackler.yellowCard = true;
+          this.tackler.yellowTime = 600; // 10 min
+          match.events.push({type:'yellow', msg:'Carton Jaune !', dur:4});
+        }
+      }
+      if (!this.forwardBall && this.carrier.hasBall) {
+        // Ruck starts
+        match.startRuck(this.carrier, this.tackler);
+      }
+    }
+  }
+}
+// ============================================================
+// RUCK CLASS
+// ============================================================
+class Ruck {
+  constructor(carrier, tackler, x, y) {
+    this.x = x; this.y = y;
+    this.carrier = carrier;
+    this.tackler = tackler;
+    this.possession = carrier.teamIdx; // who has ball
+    this.attackBar = 0.5; // 0=defender wins, 1=attacker wins
+    this.contestBar = 0;  // 0=no contest
+    this.attackPlayers = [carrier];
+    this.defensePlayers = [tackler];
+    this.maxPlayers = 3;
+    this.active = true;
+    this.timeToPlay = 5; // seconds before must play
+    this.contested = false;
+    this.hjLine = carrier.teamIdx === 0 ? x : x;
+  }
+  addPlayer(player, asAttack) {
+    if (asAttack && this.attackPlayers.length < this.maxPlayers) {
+      this.attackPlayers.push(player);
+      player.inRuck = true;
+      player.onGround = true;
+      player.groundTime = 1.5;
+      return true;
+    } else if (!asAttack && this.defensePlayers.length < this.maxPlayers) {
+      this.defensePlayers.push(player);
+      player.inRuck = true;
+      player.onGround = true;
+      player.groundTime = 1.5;
+      return true;
+    }
+    return false;
+  }
+  update(dt) {
+    this.timeToPlay -= dt;
+    if (this.timeToPlay <= 0) this.active = false;
+    // Balance drift
+    const atkStr = this.attackPlayers.length * 0.5;
+    const defStr = this.defensePlayers.length * 0.4;
+    this.attackBar = Math.max(0, Math.min(1, this.attackBar + (atkStr - defStr) * dt * 0.1));
+    if (this.attackBar <= 0) {
+      // Defense wins
+      this.possession = 1 - this.possession;
+      this.active = false;
+    }
+  }
+  draw() {
+    if (!this.active) return;
+    ctx.save();
+    // Ruck oval
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y, 25, 18, 0, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Possession bar
+    const bw = 50, bh = 6, bx = this.x - bw/2, by = this.y - 28;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = this.possession === 0 ? '#3399FF' : '#FF4444';
+    ctx.fillRect(bx, by, bw * this.attackBar, bh);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx, by, bw, bh);
+    // HJ line
+    ctx.strokeStyle = 'rgba(255,255,0,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(this.x, FY);
+    ctx.lineTo(this.x, FY + FH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Label
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '9px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('RUCK', this.x, this.y + 28);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// SCRUM CLASS
+// ============================================================
+class Scrum {
+  constructor(x, y, possession, match) {
+    this.x = x; this.y = y;
+    this.possession = possession;
+    this.match = match;
+    this.phase = 'pre'; // pre, engage, push, done
+    this.timer = 3;
+    this.pushL = 0; // left prop push gauge
+    this.pushR = 0; // right prop push gauge
+    this.advance = 0; // positive = team1 pushes forward
+    this.penalized = -1;
+    this.settled = false;
+    this.introDelay = 1.5;
+    this.scrumFallen = false;
+    this.deviation = 0; // turning
+  }
+  update(dt) {
+    switch(this.phase) {
+      case 'pre':
+        this.introDelay -= dt;
+        if (this.introDelay <= 0) this.phase = 'engage';
+        break;
+      case 'engage':
+        this.timer -= dt;
+        if (this.timer <= 0) { this.phase = 'push'; this.timer = 8; }
+        // Check for early push (premature push = coup franc)
+        if (INPUT.gp && (Math.abs(INPUT.ly()) > 0.5 || Math.abs(getRY()) > 0.5) && this.timer > 1) {
+          if (this.possession === 0) {
+            this.match.events.push({type:'penalty', msg:'Poussée anticipée !', dur:2});
+            this.penalized = 0;
+            this.phase = 'done';
+          }
+        }
+        break;
+      case 'push':
+        this.timer -= dt;
+        // Input-driven pushing
+        const ly = getLY(), ry = getRY();
+        const pushVal = Math.max(0, (-ly + -ry) / 2);
+        if (pushVal > 0.2) {
+          const gc = Math.min(1, pushVal);
+          // Check for straight push (deviation check)
+          const dev = Math.abs(getLX()) + Math.abs(getRX());
+          if (dev > 0.4) {
+            // Pushing sideways = penalty
+            this.match.events.push({type:'penalty', msg:'Mêlée tournée !', dur:2});
+            this.penalized = 0;
+            this.phase = 'done';
+            return;
+          }
+          if (gc > 0.85) {
+            // Red = uncontrolled, player falls
+            this.match.events.push({type:'penalty', msg:'Mêlée écroulée !', dur:2});
+            this.penalized = 0;
+            this.scrumFallen = true;
+            this.phase = 'done';
+            return;
+          }
+          const pushPow = gc * 0.02;
+          this.advance += pushPow * (this.possession === 0 ? 1 : -1);
+        } else {
+          // CPU scrum push
+          const cpuPush = 0.012 * (0.6 + Math.random() * 0.4);
+          this.advance += cpuPush * (this.possession === 1 ? 1 : -1) * 0.6;
+        }
+        this.advance = Math.max(-1, Math.min(1, this.advance));
+        if (Math.abs(this.advance) > 0.8) {
+          // Dominant team penalizes losers
+          this.penalized = this.advance > 0 ? 1 : 0;
+          this.match.events.push({type:'penalty', msg:'Mêlée dominée !', dur:2});
+          this.phase = 'done';
+          return;
+        }
+        // Ball out options
+        if (INPUT.gp ? INPUT.pressed(INPUT.A) : INPUT.kb['KeyZ']) {
+          // Number 8 pick
+          this.phase = 'done';
+          this.settled = true;
+          this.possession_winner = this.possession;
+        }
+        if (this.timer <= 0) {
+          this.phase = 'done';
+          this.settled = true;
+          this.possession_winner = this.possession;
+        }
+        break;
+    }
+  }
+  draw() {
+    ctx.save();
+    // Scrum pack oval
+    const teamColor = this.possession === 0 ? '#3399FF' : '#FF4444';
+    ctx.fillStyle = 'rgba(80,80,80,0.6)';
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y, 45, 25, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Advance indicator
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('MÊLÉE', this.x, this.y - 35);
+    // Push bar
+    const bw = 80;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(this.x - bw/2, this.y - 48, bw, 8);
+    ctx.fillStyle = '#3399FF';
+    ctx.fillRect(this.x, this.y - 48, (this.advance * bw / 2), 8);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(this.x - bw/2, this.y - 48, bw, 8);
+    // Phase label
+    ctx.fillStyle = '#aaa';
+    ctx.font = '9px Arial';
+    ctx.fillText(this.phase === 'engage' ? `Engagez! ${Math.ceil(this.timer)}s` : 
+                  this.phase === 'push' ? `Poussez! LY+RY` : '', this.x, this.y + 38);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// LINEOUT CLASS
+// ============================================================
+class Lineout {
+  constructor(x, y, possession, match) {
+    this.x = x; this.y = y;
+    this.possession = possession;
+    this.match = match;
+    this.phase = 'choose'; // choose, throw, catch, maul
+    this.numPlayers = 7;
+    this.combo = 0; // 0=front, 1=middle, 2=tail, 3=middle maul
+    this.comboNames = ['Avant (court)','Milieu','Queue (long)','Maul milieu'];
+    this.timer = 5;
+    this.throwGauge = 0;
+    this.charging = false;
+    this.jumped = false;
+    this.jumpGauge = 0;
+    this.success = false;
+    this.targetPos = [1,3,5,3][this.combo];
+  }
+  update(dt) {
+    switch(this.phase) {
+      case 'choose':
+        if (dUp() || INPUT.kb['ArrowUp']) { this.combo = (this.combo - 1 + 4) % 4; }
+        if (dDown() || INPUT.kb['ArrowDown']) { this.combo = (this.combo + 1) % 4; }
+        this.targetPos = [1,3,5,3][this.combo];
+        if (btnAP()) this.phase = 'throw';
+        break;
+      case 'throw':
+        this.timer -= dt;
+        if (this.timer <= 0) {
+          // Too slow = free kick for opponents
+          this.match.events.push({type:'penalty', msg:'Lancer trop lent ! Coup franc.', dur:3});
+          this.phase = 'done_fail';
+          return;
+        }
+        // Charge throw
+        if (getRY() < -0.3 || INPUT.kb['KeyI']) {
+          this.charging = true;
+          this.throwGauge = Math.min(1, this.throwGauge + dt * 0.8);
+        } else if (this.charging && (getRY() > 0.3 || INPUT.kb['KeyK'])) {
+          this.phase = 'catch';
+          this.jumpTimer = 1.5;
+        }
+        break;
+      case 'catch':
+        this.jumpTimer -= dt;
+        // Player presses Y to jump with gauge
+        if ((btnY() || INPUT.kb['KeyV']) && !this.jumped) {
+          this.jumped = true;
+          this.jumpGauge = 0;
+        }
+        if (this.jumped) {
+          this.jumpGauge = Math.min(1, this.jumpGauge + dt * 1.2);
+        }
+        if (this.jumpTimer <= 0) {
+          // Evaluate success
+          const throwQuality = gaugeName(this.throwGauge);
+          const jumpQuality = this.jumped ? gaugeName(this.jumpGauge) : 'miss';
+          const deviation = Math.abs(getLX()) + Math.abs(getLY());
+          if (deviation > 0.5 && this.possession === 0) {
+            // Bad throw direction = turnover
+            this.success = false;
+            this.match.events.push({type:'lineout_fail', msg:'Lancer de travers ! Mêlée adverse.', dur:3});
+          } else if (jumpQuality === 'rouge' || throwQuality === 'rouge') {
+            // Knock on in lineout
+            this.success = false;
+            this.match.events.push({type:'lineout_fail', msg:'En-avant en touche !', dur:3});
+          } else {
+            this.success = true;
+          }
+          if (this.combo === 3) {
+            this.phase = 'maul';
+          } else {
+            this.phase = 'done';
+          }
+        }
+        break;
+      case 'maul':
+        this.phase = 'done'; // Simplified - go to ruck
+        break;
+    }
+  }
+  draw() {
+    ctx.save();
+    const side = this.y < Y_MID ? -1 : 1; // which touchline
+    const baseY = side < 0 ? FY + 15 : FY + FH - 15;
+
+    if (this.phase === 'choose') {
+      // Show combo selection
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(this.x - 140, baseY - 5 + side*30, 280, 100 * side);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('TOUCHE - Choisir combinaison', this.x, baseY + side * 20);
+      ctx.font = '10px Arial';
+      for (let i = 0; i < this.comboNames.length; i++) {
+        ctx.fillStyle = i === this.combo ? '#FFD700' : '#AAAAAA';
+        ctx.fillText((i === this.combo ? '▶ ' : '  ') + this.comboNames[i], this.x, baseY + side * (35 + i * 14));
+      }
+      ctx.fillStyle = '#888';
+      ctx.fillText('[D↑↓] Choisir  [A] Confirmer', this.x, baseY + side * 95);
+    }
+
+    // Draw lineout players visual
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(this.x, FY); ctx.lineTo(this.x, FY + FH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (this.phase === 'throw' || this.phase === 'catch') {
+      // Show throw gauge
+      const gy = FY + FH/2;
+      drawGauge(this.x - 60, gy - 8, 120, 12, this.throwGauge, 'Puissance lancer');
+      if (this.phase === 'catch' && this.jumped) {
+        drawGauge(this.x - 60, gy + 10, 120, 12, this.jumpGauge, 'Saut [Y]');
+      } else if (this.phase === 'catch') {
+        ctx.fillStyle = '#FFD700';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Appuyez [Y] pour sauter !', this.x, gy + 22);
+      }
+      ctx.fillStyle = '#FFD700';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Timer: ${this.timer.toFixed(1)}s`, this.x, gy - 20);
+    }
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// KICK STATE
+// ============================================================
+class KickState {
+  constructor(kicker, type) {
+    this.kicker = kicker;
+    this.type = type; // 'grubber','clearance','drop','upunder','penalty','conversion'
+    this.gauge = 0;
+    this.charging = false;
+    this.dir = { x: kicker.teamIdx === 0 ? 1 : -1, y: 0 };
+    this.done = false;
+    this.maxPower = type === 'grubber' ? 0.7 : 1.0;
+  }
+  update(dt) {
+    const lx = getLX(), ly = getLY();
+    // Aim with left stick
+    if (Math.abs(lx) > 0.1 || Math.abs(ly) > 0.1) {
+      this.dir.x = lx; this.dir.y = ly;
+      const m = Math.sqrt(lx*lx + ly*ly);
+      this.dir.x /= m; this.dir.y /= m;
+    }
+    this.gauge = Math.min(this.maxPower, this.gauge + dt * 0.65);
+  }
+  release(ball, match) {
+    const g = this.gauge;
+    const t = this.type;
+    const spd = SCALE * (t === 'grubber' ? 22 : t === 'clearance' ? 30 : t === 'upunder' ? 20 : 26);
+    const vz = t === 'grubber' ? 0 : t === 'upunder' ? (160 + g*80) : t === 'clearance' ? (100 + g*100) : (80 + g*100);
+    ball.kick(
+      this.dir.x * spd * (0.5 + g * 0.8),
+      this.dir.y * spd * (0.5 + g * 0.8),
+      vz,
+      t
+    );
+    this.done = true;
+    match.events.push({type:'kick', msg:t === 'grubber' ? 'Kick rasant' : t === 'clearance' ? 'Dégagement' : t === 'upunder' ? 'Chandelle' : 'Drop', dur:1.5});
+    // Track kick origin for 50-22 rule
+    match.lastKickPos = { x: this.kicker.x, y: this.kicker.y, team: this.kicker.teamIdx };
+    match.lastKickType = t;
+  }
+  draw() {
+    const colors = {grubber:'#FF8C00', clearance:'#FFD700', drop:'#00CC44', upunder:'#87CEEB'};
+    const kx = this.kicker.x, ky = this.kicker.y;
+    // Aim line
+    ctx.save();
+    ctx.strokeStyle = colors[this.type] || '#fff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5,3]);
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(kx, ky);
+    ctx.lineTo(kx + this.dir.x * 200 * (0.5 + this.gauge), ky + this.dir.y * 200 * (0.5 + this.gauge));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Arrow head
+    const ax = kx + this.dir.x * 200 * (0.5 + this.gauge);
+    const ay = ky + this.dir.y * 200 * (0.5 + this.gauge);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = colors[this.type] || '#fff';
+    ctx.beginPath();
+    ctx.arc(ax, ay, 4, 0, Math.PI*2);
+    ctx.fill();
+    // Gauge
+    drawGauge(kx - 35, ky + 20, 70, 8, this.gauge, this.type.toUpperCase());
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// PENALTY KICK / CONVERSION
+// ============================================================
+class PenaltyKick {
+  constructor(x, y, team, type, match) {
+    this.x = x; this.y = y;
+    this.team = team;
+    this.type = type; // 'penalty' or 'conversion'
+    this.match = match;
+    this.aimX = 0; // horizontal aim offset in degrees from center
+    this.power = 0;
+    this.phase = 'aim'; // aim, kick, result
+    this.result = null;
+    this.timer = 0;
+    this.angle = 0; // right stick angle for height
+    // Calculate difficulty
+    const postX = team === 0 ? X_TRY_R : X_TRY_L;
+    const postY = Y_MID;
+    const dist = Math.sqrt((this.x - postX)**2 + (this.y - postY)**2) / SCALE; // meters
+    this.distance = dist;
+    this.angle_to_posts = Math.abs(this.y - postY) / SCALE;
+  }
+  update(dt) {
+    if (this.phase === 'aim') {
+      this.aimX += getLX() * dt * 30;
+      this.aimX = Math.max(-30, Math.min(30, this.aimX));
+      if (btnX() || INPUT.kb['KeyC']) {
+        this.power = Math.min(1, this.power + dt * 0.7);
+      } else if (this.power > 0) {
+        this.phase = 'kick';
+        this.evaluateKick();
+      }
+    }
+    if (this.phase === 'result') {
+      this.timer -= dt;
+      if (this.timer <= 0) {
+        this.match.penaltyKickDone(this.result, this.type, this.team);
+        this.phase = 'done';
+      }
+    }
+  }
+  evaluateKick() {
+    const g = this.power;
+    const gn = gaugeName(g);
+    // Distance factor (50m = needs vert, 30m = easier)
+    const distFactor = Math.max(0, 1 - this.distance / 55);
+    // Power check
+    let success = false;
+    if (gn === 'vert') {
+      success = Math.random() < (0.9 - this.distance / 100);
+    } else if (gn === 'jaune') {
+      success = this.distance < 30 && Math.random() < 0.7;
+    } else if (gn === 'orange') {
+      success = this.distance < 20 && Math.random() < 0.5;
+    } else {
+      // rouge = too much power
+      success = Math.random() < 0.3;
+    }
+    // Aim penalty
+    if (Math.abs(this.aimX) > 15) success = false;
+    this.result = success;
+    this.phase = 'result';
+    this.timer = 2;
+    this.match.events.push({type: success ? 'goal' : 'miss', msg: success ? (this.type === 'penalty' ? 'Pénalité ! 3 pts' : 'Transformation ! 2 pts') : 'Raté !', dur:3});
+  }
+  draw() {
+    const postX = this.team === 0 ? X_TRY_R : X_TRY_L;
+    const postY = Y_MID;
+    ctx.save();
+    // Aim line to posts
+    ctx.strokeStyle = this.phase === 'result' ? (this.result ? '#00FF00' : '#FF0000') : '#FFD700';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,3]);
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    const aimRad = (this.aimX * Math.PI / 180);
+    const dx = Math.cos(aimRad) * (postX - this.x) - Math.sin(aimRad) * (postY - this.y);
+    const dy = Math.sin(aimRad) * (postX - this.x) + Math.cos(aimRad) * (postY - this.y);
+    ctx.lineTo(this.x + dx, this.y + dy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    // Power gauge
+    drawGauge(this.x - 50, this.y + 20, 100, 10, this.power, 'Puissance [X]');
+    // Aim indicator
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Aim: ${this.aimX.toFixed(0)}° [LX]   Dist: ${this.distance.toFixed(0)}m`, this.x, this.y - 20);
+    if (this.phase === 'result') {
+      ctx.font = 'bold 24px Arial';
+      ctx.fillStyle = this.result ? '#00FF44' : '#FF3322';
+      ctx.fillText(this.result ? 'RÉUSSI !' : 'RATÉ !', postX, postY - 60);
+    }
+    ctx.restore();
+  }
+}
+// ============================================================
+// FIELD RENDERER
+// ============================================================
+function drawField() {
+  // Background
+  ctx.fillStyle = '#1a4a1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Tribunes effect (perspective)
+  drawTribunes();
+
+  // Field grass (alternating stripes)
+  const stripeW = 40;
+  for (let sx = FX; sx < FX + FW; sx += stripeW) {
+    ctx.fillStyle = (Math.floor((sx - FX) / stripeW) % 2 === 0) ? '#2d7a2d' : '#2a7030';
+    ctx.fillRect(sx, FY, Math.min(stripeW, FX + FW - sx), FH);
+  }
+
+  // In-goal zones
+  ctx.fillStyle = 'rgba(0,80,0,0.35)';
+  ctx.fillRect(FX, FY, 10 * SCALE, FH);          // left in-goal
+  ctx.fillRect(X_TRY_R, FY, 10 * SCALE, FH);     // right in-goal
+
+  // Field lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2;
+
+  // Boundary
+  ctx.strokeRect(FX, FY, FW, FH);
+
+  // Try lines
+  ctx.lineWidth = 3;
+  vLine(X_TRY_L); vLine(X_TRY_R);
+
+  // 22m lines
+  ctx.lineWidth = 2;
+  vLine(X_22L); vLine(X_22R);
+
+  // Halfway
+  ctx.lineWidth = 2.5;
+  vLine(X_MID);
+
+  // 10m lines (dashed)
+  ctx.setLineDash([8, 5]);
+  ctx.lineWidth = 1.5;
+  vLine(X_10L); vLine(X_10R);
+  ctx.setLineDash([]);
+
+  // 5m lines from touchlines
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1;
+  hLine(FY + 5 * SCALE);
+  hLine(FY + FH - 5 * SCALE);
+  ctx.setLineDash([]);
+
+  // 22m labels
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '11px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('22m', X_22L, FY + 12);
+  ctx.fillText('22m', X_22R, FY + 12);
+  ctx.fillText('50m', X_MID, FY + 12);
+
+  // Goal posts
+  drawPosts(X_TRY_L, Y_MID, true);
+  drawPosts(X_TRY_R, Y_MID, false);
+
+  // Touch judges
+  drawTouchJudge(FY - 18, match ? match.ball.x : X_MID);
+  drawTouchJudge(FY + FH + 18, match ? match.ball.x : X_MID);
+}
+
+function vLine(x) {
+  ctx.beginPath(); ctx.moveTo(x, FY); ctx.lineTo(x, FY + FH); ctx.stroke();
+}
+function hLine(y) {
+  ctx.beginPath(); ctx.moveTo(FX, y); ctx.lineTo(FX + FW, y); ctx.stroke();
+}
+
+function drawPosts(x, y, facingRight) {
+  const postH = 18, crossW = 8, legH = 5;
+  ctx.save();
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 2.5;
+  // Left post
+  ctx.beginPath();
+  ctx.moveTo(x - crossW, y + legH);
+  ctx.lineTo(x - crossW, y - postH);
+  ctx.stroke();
+  // Right post
+  ctx.beginPath();
+  ctx.moveTo(x + crossW, y + legH);
+  ctx.lineTo(x + crossW, y - postH);
+  ctx.stroke();
+  // Crossbar
+  ctx.beginPath();
+  ctx.moveTo(x - crossW, y - 4);
+  ctx.lineTo(x + crossW, y - 4);
+  ctx.stroke();
+  // Center stem
+  ctx.beginPath();
+  ctx.moveTo(x, y + legH);
+  ctx.lineTo(x, y - 3);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawTribunes() {
+  // Simple perspective tribune bands
+  const colors = ['#3a2a1a','#4a3a2a','#3a2a1a','#4a3a2a'];
+  // Top tribune
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = colors[i];
+    ctx.beginPath();
+    ctx.moveTo(FX - 30 + i*8, FY - 15 - i*8);
+    ctx.lineTo(FX + FW + 30 - i*8, FY - 15 - i*8);
+    ctx.lineTo(FX + FW + 25 - (i+1)*8, FY - 15 - (i+1)*8);
+    ctx.lineTo(FX - 25 + (i+1)*8, FY - 15 - (i+1)*8);
+    ctx.closePath();
+    ctx.fill();
+    // Spectators (dots)
+    ctx.fillStyle = colors[i];
+    for (let sx = FX - 20 + i*6; sx < FX + FW + 20 - i*6; sx += 10) {
+      const spColor = `hsl(${Math.floor(Math.random()*360)},50%,${40+i*5}%)`;
+      // Use deterministic positioning
+      const seed = Math.floor(sx * 7 + i * 13);
+      ctx.fillStyle = `hsl(${(seed * 137) % 360},45%,${35+i*5}%)`;
+      ctx.beginPath();
+      ctx.arc(sx, FY - 20 - i*8, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  // Bottom tribune
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = colors[i];
+    ctx.beginPath();
+    ctx.moveTo(FX - 30 + i*8, FY + FH + 15 + i*8);
+    ctx.lineTo(FX + FW + 30 - i*8, FY + FH + 15 + i*8);
+    ctx.lineTo(FX + FW + 25 - (i+1)*8, FY + FH + 15 + (i+1)*8);
+    ctx.lineTo(FX - 25 + (i+1)*8, FY + FH + 15 + (i+1)*8);
+    ctx.closePath();
+    ctx.fill();
+    for (let sx = FX - 20 + i*6; sx < FX + FW + 20 - i*6; sx += 10) {
+      const seed = Math.floor(sx * 11 + i * 17 + 1000);
+      ctx.fillStyle = `hsl(${(seed * 137) % 360},45%,${35+i*5}%)`;
+      ctx.beginPath();
+      ctx.arc(sx, FY + FH + 20 + i*8, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  // Side tribunes
+  for (let i = 0; i < 3; i++) {
+    // Left
+    ctx.fillStyle = colors[i];
+    for (let sy = FY + 10; sy < FY + FH - 10; sy += 10) {
+      const seed = Math.floor(sy * 7 + i * 9 + 500);
+      ctx.fillStyle = `hsl(${(seed * 137) % 360},45%,${35+i*5}%)`;
+      ctx.beginPath();
+      ctx.arc(FX - 25 - i*8, sy, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+    // Right
+    for (let sy = FY + 10; sy < FY + FH - 10; sy += 10) {
+      const seed = Math.floor(sy * 11 + i * 13 + 750);
+      ctx.fillStyle = `hsl(${(seed * 137) % 360},45%,${35+i*5}%)`;
+      ctx.beginPath();
+      ctx.arc(FX + FW + 25 + i*8, sy, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawTouchJudge(y, ballX) {
+  const tx = Math.max(FX, Math.min(FX + FW, ballX));
+  ctx.save();
+  ctx.fillStyle = '#2d7a2d';
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(tx, y, 7, 0, Math.PI*2);
+  ctx.fill();
+  ctx.stroke();
+  // Flag (checkerboard orange/yellow)
+  const fy = y < Y_MID ? y + 5 : y - 5;
+  ctx.fillStyle = '#FF8C00';
+  ctx.fillRect(tx + 4, fy - 8, 8, 5);
+  ctx.fillStyle = '#FFD700';
+  ctx.fillRect(tx + 4, fy - 8, 4, 2.5);
+  ctx.fillRect(tx + 8, fy - 5.5, 4, 2.5);
+  ctx.restore();
+}
+
+function drawReferee(match) {
+  if (!match) return;
+  // Referee follows ball
+  const rx = match.ball.x;
+  const ry = Math.max(FY + 20, Math.min(FY + FH - 20, match.ball.y + 20));
+  ctx.save();
+  ctx.fillStyle = '#2d7a2d';
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(rx + 15, ry, 7, 0, Math.PI*2);
+  ctx.fill();
+  ctx.stroke();
+  // Second border
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(rx + 15, ry, 5, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ============================================================
+// HUD
+// ============================================================
+function drawHUD(match) {
+  if (!match) return;
+  // Score board (top center)
+  const bw = 260, bh = 38, bx = W/2 - bw/2, by = 8;
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  roundRect(bx, by, bw, bh, 6);
+  ctx.fill();
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 1.5;
+  roundRect(bx, by, bw, bh, 6);
+  ctx.stroke();
+
+  // Team names & scores
+  const t1 = match.team1Data, t2 = match.team2Data;
+  ctx.font = 'bold 13px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText((t1.name || 'Équipe 1').substr(0,10).toUpperCase(), bx + 8, by + 15);
+  ctx.textAlign = 'right';
+  ctx.fillText((t2.name || 'Équipe 2').substr(0,10).toUpperCase(), bx + bw - 8, by + 15);
+
+  // Scores
+  ctx.font = 'bold 18px Arial';
+  ctx.fillStyle = '#FFD700';
+  ctx.textAlign = 'left';
+  ctx.fillText(match.score[0], bx + 8, by + 32);
+  ctx.textAlign = 'right';
+  ctx.fillText(match.score[1], bx + bw - 8, by + 32);
+
+  // Time & half
+  const mins = Math.floor(match.time / 60);
+  const secs = Math.floor(match.time % 60);
+  const halfStr = match.half === 1 ? '1ère' : '2ème';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '11px Arial';
+  ctx.fillText(`${halfStr} | ${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`, W/2, by + 14);
+  ctx.font = 'bold 14px Arial';
+  ctx.fillText(`${match.score[0]} - ${match.score[1]}`, W/2, by + 30);
+
+  // Possession indicator
+  ctx.fillStyle = match.ball.team === 0 ? '#3399FF' : match.ball.team === 1 ? '#FF4444' : '#AAAAAA';
+  ctx.beginPath();
+  ctx.arc(W/2, by + 42, 4, 0, Math.PI*2);
+  ctx.fill();
+
+  // Charge gauge (when charging)
+  if (match.chargeState && match.chargeState.active) {
+    const cs = match.chargeState;
+    drawGauge(20, H - 50, 120, 14, cs.gauge, 'CHARGE [RT↑]');
+  }
+
+  // Pass gauge (when passing)
+  if (match.passState && match.passState.active) {
+    const ps = match.passState;
+    drawGauge(20, H - 70, 120, 14, ps.gauge, 'PASSE ' + (ps.dir > 0 ? '→' : '←'));
+  }
+
+  // Sprint gauge
+  const ctrl = match.controlledPlayer;
+  if (ctrl) {
+    drawGauge(20, H - 28, 100, 8, ctrl.sprint, 'Sprint');
+    drawGauge(20, H - 18, 100, 8, ctrl.stamina, 'Endurance');
+  }
+
+  // Events / Messages
+  drawEvents(match);
+
+  // Phase indicator
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(W - 130, 8, 122, 22);
+  ctx.fillStyle = '#FFD700';
+  ctx.font = '11px Arial';
+  ctx.textAlign = 'center';
+  const phaseNames = {open:'JEU OUVERT', ruck:'RUCK', scrum:'MÊLÉE', lineout:'TOUCHE',
+                       kickoff:'ENGAGEMENT', penalty:'PÉNALITÉ', conversion:'TRANSFORMATION',
+                       penaltyChoice:'CHOIX PÉNALITÉ'};
+  ctx.fillText(phaseNames[match.phase] || match.phase.toUpperCase(), W - 69, by + 16);
+
+  // Controls hint (bottom right)
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(W - 200, H - 48, 198, 46);
+  ctx.fillStyle = '#888';
+  ctx.font = '9px Arial';
+  ctx.textAlign = 'right';
+  if (match.ball.team === 0 && ctrl && ctrl.hasBall) {
+    ctx.fillText('Gauche: déplacer | [A]Kick rasant [B]Dégag.', W - 4, H - 36);
+    ctx.fillText('[X]Drop [Y]Chandelle | RT↑: Charge | RX: Passe', W - 4, H - 24);
+    ctx.fillText('[LT+Stick]: Skill | Start: Pause', W - 4, H - 12);
+  } else if (match.ball.team === 1 && ctrl) {
+    ctx.fillText('[A]Plaquer jambes [B]Taille [Y]Bras (haut)', W - 4, H - 36);
+    ctx.fillText('[X]Arracher ballon | RT: Rush défense', W - 4, H - 24);
+    ctx.fillText('[D↑] Rush defense manuel', W - 4, H - 12);
+  } else {
+    ctx.fillText('L.Stick: déplacer | [A][B][Y]: Plaquer', W - 4, H - 36);
+    ctx.fillText('[RT↑]: Charge | [RX]: Passe', W - 4, H - 24);
+    ctx.fillText('Démarrage: Stick gauche', W - 4, H - 12);
+  }
+}
+
+let eventMessages = [];
+function drawEvents(match) {
+  if (!match.events) return;
+  // Animate events
+  const now = Date.now() / 1000;
+  for (let ev of match.events) {
+    if (!ev._startTime) ev._startTime = now;
+    const elapsed = now - ev._startTime;
+    if (elapsed > ev.dur) continue;
+    const alpha = Math.min(1, Math.min(elapsed * 3, (ev.dur - elapsed) * 2));
+    const yOff = -elapsed * 15;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const colors = {penalty:'#FF8C00', yellow:'#FFD700', try:'#00FF44', goal:'#00FF44',
+                     forward_pass:'#FF4400', miss:'#FF3322', kick:'#87CEEB', lineout_fail:'#FF8C00'};
+    ctx.fillStyle = colors[ev.type] || '#FFFFFF';
+    ctx.font = `bold ${ev.type === 'try' ? 32 : 18}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(ev.msg, W/2, H/2 - 40 + yOff);
+    ctx.restore();
+  }
+  // Clean old events
+  match.events = match.events.filter(ev => {
+    if (!ev._startTime) return true;
+    return (Date.now()/1000 - ev._startTime) < ev.dur + 0.5;
+  });
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ============================================================
+// PENALTY CHOICE MENU
+// ============================================================
+function drawPenaltyChoice(match) {
+  if (match.phase !== 'penaltyChoice') return;
+  const pc = match.pendingPenaltyChoice;
+  if (!pc) return;
+  const opts = ['Jouer vite (3 pts opp à 10m)', 'Tir au but (3 pts)', 'Mêlée à l\'endroit', 'Pénaltouche (coup de pied en touche)'];
+  const bw = 320, bh = 140, bx = W/2 - bw/2, by = H/2 - bh/2;
+  ctx.fillStyle = 'rgba(0,0,0,0.88)';
+  roundRect(bx, by, bw, bh, 8); ctx.fill();
+  ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2;
+  roundRect(bx, by, bw, bh, 8); ctx.stroke();
+  ctx.fillStyle = '#FFD700'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
+  ctx.fillText('PÉNALITÉ POUR VOUS', W/2, by + 18);
+  ctx.fillStyle = '#aaa'; ctx.font = '11px Arial';
+  ctx.fillText(pc.reason || 'Faute adverse', W/2, by + 32);
+  for (let i = 0; i < opts.length; i++) {
+    ctx.fillStyle = pc.selected === i ? '#FFD700' : '#CCCCCC';
+    ctx.font = (pc.selected === i ? 'bold ' : '') + '11px Arial';
+    ctx.fillText((pc.selected === i ? '▶ ' : '  ') + opts[i], W/2, by + 52 + i * 22);
+  }
+  ctx.fillStyle = '#666'; ctx.font = '10px Arial';
+  ctx.fillText('[D↑↓] Choisir  [A] Confirmer', W/2, by + 130);
+}
+// ============================================================
+// MATCH CLASS - MAIN GAME LOGIC
+// ============================================================
+class Match {
+  constructor(team1Data, team2Data, team1Players, team2Players) {
+    this.team1Data = team1Data;
+    this.team2Data = team2Data;
+    this.score = [0, 0];
+    this.time = 0;
+    this.half = 1;
+    this.phase = 'kickoff'; // open, ruck, scrum, lineout, kickoff, penalty, penaltyChoice, conversion, halftime, fulltime
+    this.ball = new Ball();
+    this.team1 = this.createPlayers(team1Data, team1Players, 0);
+    this.team2 = this.createPlayers(team2Data, team2Players, 1);
+    this.allPlayers = [...this.team1, ...this.team2];
+    this.controlledPlayer = this.getKicker(0);
+    this.kickoff = 0; // who kicks off
+    this.possession = 0;
+    this.events = [];
+    this.tackleBlock = null;
+    this.ruck = null;
+    this.scrum = null;
+    this.lineout = null;
+    this.kickState = null;
+    this.penaltyKick = null;
+    this.pendingPenalty = null;
+    this.pendingPenaltyChoice = null;
+    this.chargeState = { active: false, gauge: 0 };
+    this.passState = { active: false, gauge: 0, dir: 0 };
+    this.rushDefense = false;
+    this.defenseSpacing = 2; // 1-5
+    this.attackDepth = 1;    // 1-3
+    this.halfStarted = false;
+    this.lastKickPos = null;
+    this.lastKickType = null;
+    this.rtPressCount = 0;
+    this.rtLastTime = 0;
+    this.dUpCount = 0;
+    this.dUpLastTime = 0;
+    this.totalGameTime = 40 * 60; // 40 min per half in real time... accelerated
+    this.timeMultiplier = 2; // 1 real second = 2 game seconds
+    this.paused = false;
+
+    // Place teams for kickoff
+    this.setupKickoff();
+    this.ball.x = X_MID; this.ball.y = Y_MID;
+    this.ball.team = -1;
+  }
+
+  createPlayers(teamData, playerList, teamIdx) {
+    const players = [];
+    for (let i = 0; i < 15; i++) {
+      const pd = playerList[i] || {n: 'Joueur ' + (i+1), r: 75};
+      // Position on field
+      const pos = this.getStartPos(teamIdx, i);
+      const p = new Player(teamIdx, i + 1, i, pos.x, pos.y, pd.n, pd.r);
+      players.push(p);
+    }
+    return players;
+  }
+
+  getStartPos(teamIdx, posIdx) {
+    // Attacking direction: team0 attacks right (start in left half), team1 attacks left (start in right half)
+    const side = teamIdx === 0 ? -1 : 1;
+    const midX = X_MID;
+    const midY = Y_MID;
+    const s = SCALE;
+    // Formation positions relative to center
+    const formations = [
+      // Forwards in a 3-4-1 scrum shape initially
+      {dx:-12*s,dy:-5*s},{dx:-12*s,dy:0},{dx:-12*s,dy:5*s},  // front row
+      {dx:-16*s,dy:-3*s},{dx:-16*s,dy:3*s},                   // locks
+      {dx:-18*s,dy:-6*s},{dx:-18*s,dy:6*s},                   // flankers
+      {dx:-20*s,dy:0},                                          // n8
+      {dx:-22*s,dy:2*s},                                        // sh
+      {dx:-25*s,dy:-7*s},                                       // fo
+      {dx:-30*s,dy:14*s},                                       // wing L
+      {dx:-28*s,dy:-5*s},                                       // centre L
+      {dx:-28*s,dy:5*s},                                        // centre R
+      {dx:-30*s,dy:-14*s},                                      // wing R
+      {dx:-35*s,dy:0},                                          // fb
+    ];
+    const f = formations[posIdx] || {dx:0, dy:0};
+    return {
+      x: midX + side * (-f.dx),
+      y: midY + f.dy
+    };
+  }
+
+  setupKickoff() {
+    // Reset to kickoff positions
+    for (let i = 0; i < 15; i++) {
+      const p0 = this.team1[i], p1 = this.team2[i];
+      const pos0 = this.getStartPos(0, i);
+      const pos1 = this.getStartPos(1, i);
+      p0.x = pos0.x; p0.y = pos0.y;
+      p1.x = pos1.x; p1.y = pos1.y;
+      p0.vx = p0.vy = 0;
+      p1.vx = p1.vy = 0;
+      p0.onGround = false; p1.onGround = false;
+      p0.hasBall = false; p1.hasBall = false;
+      p0.inRuck = false; p1.inRuck = false;
+    }
+    this.ball.x = X_MID; this.ball.y = Y_MID;
+    this.ball.carrier = null;
+    this.ball.vx = this.ball.vy = this.ball.vz = 0;
+    this.ball.onGround = true;
+    this.ball.loose = false;
+    this.ball.team = -1;
+    this.ball.inTouch = false;
+    this.phase = 'kickoff';
+  }
+
+  getKicker(teamIdx) {
+    return teamIdx === 0 ? this.team1[9] : this.team2[9]; // #10 is kicker
+  }
+  getScrum9(teamIdx) {
+    return teamIdx === 0 ? this.team1[8] : this.team2[8]; // #9
+  }
+
+  getBallCarrier() {
+    for (let p of this.allPlayers) {
+      if (p.hasBall) return p;
+    }
+    return null;
+  }
+
+  update(dt) {
+    if (this.paused) return;
+    INPUT.poll();
+
+    // Gamepad hot-swap keyboard state
+    INPUT._prevKb = {...INPUT.kb};
+
+    // Timer
+    if (['open','ruck','kickoff'].includes(this.phase)) {
+      this.time += dt * this.timeMultiplier;
+      if (this.time >= this.totalGameTime) {
+        if (this.half === 1) {
+          this.half = 2;
+          this.time = 0;
+          this.events.push({type:'half', msg:'MI-TEMPS !', dur:4});
+          this.setupKickoff();
+          this.kickoff = 1 - this.kickoff;
+          this.phase = 'kickoff';
+        } else {
+          this.phase = 'fulltime';
+          this.events.push({type:'fulltime', msg:'COUP DE SIFFLET FINAL !', dur:6});
+        }
+        return;
+      }
+    }
+
+    // Update all players
+    for (let p of this.allPlayers) p.update(dt);
+
+    // Update ball
+    this.ball.update(dt);
+
+    // Handle phases
+    switch (this.phase) {
+      case 'kickoff': this.updateKickoff(dt); break;
+      case 'open':    this.updateOpen(dt); break;
+      case 'ruck':    this.updateRuck(dt); break;
+      case 'scrum':   this.updateScrum(dt); break;
+      case 'lineout': this.updateLineout(dt); break;
+      case 'penaltyChoice': this.updatePenaltyChoice(dt); break;
+      case 'conversion': case 'penaltyKick': this.updatePenaltyKick(dt); break;
+      case 'halftime': case 'fulltime': break;
+    }
+
+    // Tackle block
+    if (this.tackleBlock && !this.tackleBlock.fallen) {
+      this.tackleBlock.update(dt, this);
+    }
+
+    // Kick state
+    if (this.kickState) {
+      this.kickState.update(dt);
+    }
+
+    // Touch detection
+    this.checkTouch();
+
+    // Try detection
+    this.checkTry();
+
+    // Auto control switch (nearest to ball when loose)
+    if (this.ball.loose && !this.ball.carrier) {
+      this.autoChase();
+    }
+
+    // Pause
+    if (btnStart()) {
+      GAME.state = 'pause';
+    }
+
+    // Playbook
+    if (btnSel()) {
+      // TODO: playbook menu
+    }
+  }
+
+  updateKickoff(dt) {
+    const isPlayerKick = this.kickoff === 0;
+    const kicker = this.getKicker(this.kickoff);
+    this.controlledPlayer = kicker;
+
+    if (!this.kickState && !this.halfStarted) {
+      // Show kickoff instruction
+      if (isPlayerKick) {
+        // Player initiates kick
+        if (btnB() || INPUT.kb['KeyX']) {
+          this.kickState = new KickState(kicker, 'clearance');
+          this.halfStarted = true;
+        }
+      } else {
+        // CPU kicks
+        this.halfStarted = true;
+        setTimeout(() => this.cpuKickoff(), 1500);
+      }
+    }
+    if (this.kickState) {
+      this.kickState.update(dt);
+      if (!btnB() && !INPUT.kb['KeyX'] && this.kickState.gauge > 0.1 && this.kickState.charging) {
+        this.kickState.release(this.ball, this);
+        this.kickState = null;
+        this.phase = 'open';
+        this.possession = -1;
+        kicker.hasBall = false;
+        this.ball.team = -1;
+        this.halfStarted = false;
+      }
+      if (btnB() || INPUT.kb['KeyX']) {
+        this.kickState.charging = true;
+      }
+    }
+  }
+
+  cpuKickoff() {
+    const kicker = this.getKicker(this.kickoff);
+    // CPU kicks off toward opponent half
+    const dir = this.kickoff === 1 ? -1 : 1;
+    this.ball.carrier = null;
+    this.ball.x = X_MID; this.ball.y = Y_MID;
+    this.ball.kick(dir * (200 + Math.random()*80), (Math.random()-0.5)*60, 180, 'clearance');
+    this.ball.team = -1;
+    this.phase = 'open';
+    this.possession = -1;
+    this.halfStarted = false;
+    this.controlledPlayer = this.team1[14]; // Switch to fullback to receive
+  }
+
+  updateOpen(dt) {
+    // Check for player input
+    const ctrl = this.controlledPlayer;
+    if (!ctrl) { this.controlledPlayer = this.team1[8]; return; }
+
+    // Movement
+    const lx = getLX(), ly = getLY();
+    ctrl.isSprinting = btnRT() && !btnLT();
+
+    if (!this.kickState) {
+      ctrl.move(lx, ly);
+    }
+
+    // Kick actions (when ball carrier)
+    if (ctrl.hasBall && !this.kickState && !this.tackleBlock) {
+      if (btnA() || INPUT.kb['KeyZ']) {
+        this.kickState = new KickState(ctrl, 'grubber');
+      } else if (btnB() || INPUT.kb['KeyX']) {
+        this.kickState = new KickState(ctrl, 'clearance');
+      } else if (btnX() || INPUT.kb['KeyC']) {
+        this.kickState = new KickState(ctrl, 'drop');
+      } else if (btnY() || INPUT.kb['KeyV']) {
+        this.kickState = new KickState(ctrl, 'upunder');
+      }
+    }
+
+    // Kick release
+    if (this.kickState && ctrl.hasBall) {
+      this.kickState.update(dt);
+      const released = (this.kickState.type === 'grubber' && (!btnA() && !INPUT.kb['KeyZ'])) ||
+                        (this.kickState.type === 'clearance' && (!btnB() && !INPUT.kb['KeyX'])) ||
+                        (this.kickState.type === 'drop' && (!btnX() && !INPUT.kb['KeyC'])) ||
+                        (this.kickState.type === 'upunder' && (!btnY() && !INPUT.kb['KeyV']));
+      if (released && this.kickState.gauge > 0.05) {
+        ctrl.hasBall = false;
+        this.ball.carrier = null;
+        this.kickState.release(this.ball, this);
+        this.kickState = null;
+        this.stamina_drain(ctrl, 0.04);
+        return;
+      }
+      if (this.kickState && this.kickState.gauge < 0.02) this.kickState.charging = true;
+    }
+
+    // Charge with right stick up (no ball carry = tackle)
+    if (!ctrl.hasBall) {
+      this.handleTackleInput(ctrl, dt);
+    } else {
+      this.handleCarrierInput(ctrl, dt);
+    }
+
+    // Right stick = pass
+    if (ctrl.hasBall && !this.kickState) {
+      const rx = getRX(), ry = getRY();
+      if (Math.abs(rx) > 0.4 && !this.passState.active) {
+        this.passState = { active: true, dir: rx > 0 ? 1 : -1, gauge: 0 };
+      }
+      if (this.passState.active) {
+        this.passState.gauge = Math.min(1, this.passState.gauge + dt * 0.7);
+        // Check for release
+        const stillHeld = (this.passState.dir > 0 && getRX() > 0.3) || (this.passState.dir < 0 && getRX() < -0.3);
+        if (!stillHeld) {
+          this.executePass(ctrl, this.passState);
+          this.passState = { active: false, gauge: 0, dir: 0 };
+        }
+      }
+    } else {
+      this.passState = { active: false, gauge: 0, dir: 0 };
+    }
+
+    // D-pad movements
+    this.handleDpad();
+
+    // Auto-select nearest player to ball when no ball
+    if (!ctrl.hasBall && !this.ball.loose) {
+      // Switch controlled player to ball carrier if they're closer
+      const carrier = this.getBallCarrier();
+      if (carrier && carrier.teamIdx === 0) {
+        this.controlledPlayer = carrier;
+      }
+    }
+
+    // CPU AI
+    this.updateCPU(dt);
+
+    // Collision: tackle attempts
+    this.checkTackleCollisions();
+  }
+
+  handleCarrierInput(ctrl, dt) {
+    const rx = getRX(), ry = getRY();
+    // Charge (right stick up while has ball)
+    if (ry < -0.4 && !this.passState.active) {
+      this.chargeState.active = true;
+      this.chargeState.gauge = Math.min(1, this.chargeState.gauge + dt * 0.55);
+    } else if (this.chargeState.active && ry >= -0.1) {
+      this.chargeState.active = false;
+      // Keep gauge for collision check
+    }
+    if (!this.chargeState.active && this.chargeState.gauge > 0) {
+      this.chargeState.gauge = Math.max(0, this.chargeState.gauge - dt * 0.4);
+    }
+
+    // Skills (LT + stick)
+    if (btnLT()) {
+      const rx2 = getRX(), ry2 = getRY();
+      if (Math.abs(rx2) > 0.6 && !ctrl._skillCooldown) {
+        // Crochet - dash in stick direction
+        ctrl.vx += rx2 * 180;
+        ctrl.vy += ry2 * 180;
+        ctrl._skillCooldown = 0.4;
+        this.stamina_drain(ctrl, 0.03);
+        this.events.push({type:'skill', msg: rx2 > 0 ? 'Crochet →' : 'Crochet ←', dur:1});
+      }
+    }
+    if (ctrl._skillCooldown) ctrl._skillCooldown -= dt;
+  }
+
+  handleTackleInput(ctrl, dt) {
+    const ry = getRY();
+    // Charge tackle gauge
+    if (ry < -0.4) {
+      ctrl.tackleGauge = Math.min(1, ctrl.tackleGauge + dt * 0.7);
+      ctrl.isTackling = true;
+    } else {
+      ctrl.tackleGauge = Math.max(0, ctrl.tackleGauge - dt * 0.5);
+      if (ctrl.tackleGauge < 0.1) ctrl.isTackling = false;
+    }
+
+    // Select tackle type from buttons
+    if (btnA() || INPUT.kb['KeyZ']) ctrl.tackleType = 'legs';
+    else if (btnB() || INPUT.kb['KeyX']) ctrl.tackleType = 'waist';
+    else if (btnY() || INPUT.kb['KeyV']) ctrl.tackleType = 'arms';
+    else if (!btnA() && !btnB() && !btnY()) ctrl.tackleType = ctrl.tackleType || 'legs';
+  }
+
+  executePass(carrier, ps) {
+    // Determine target based on gauge
+    const dir = ps.dir; // 1=right, -1=left
+    const gn = gaugeName(ps.gauge);
+    const teammates = this.team1.filter(p => p !== carrier && !p.onGround && !p.inRuck);
+    // Sort by distance in pass direction
+    const sorted = teammates.sort((a, b) => {
+      const ad = dir > 0 ? (a.x - carrier.x) : (carrier.x - a.x);
+      const bd = dir > 0 ? (b.x - carrier.x) : (carrier.x - b.x);
+      const adist = Math.sqrt((a.x-carrier.x)**2 + (a.y-carrier.y)**2);
+      const bdist = Math.sqrt((b.x-carrier.x)**2 + (b.y-carrier.y)**2);
+      return adist - bdist;
+    }).filter(p => {
+      const inDir = dir > 0 ? p.x > carrier.x - 30 : p.x < carrier.x + 30;
+      return inDir;
+    });
+
+    const targetIdx = gn === 'orange' ? 0 : gn === 'jaune' ? 1 : gn === 'vert' ? 2 : 3;
+    const target = sorted[Math.min(targetIdx, sorted.length - 1)];
+
+    if (!target || gn === 'rouge') {
+      // No target or too long = ball loose
+      carrier.hasBall = false;
+      this.ball.carrier = null;
+      const passDir = dir * (carrier.teamIdx === 0 ? 1 : -1);
+      // Check if pass is legal (backward)
+      const fwdBias = dir * (carrier.teamIdx === 0 ? 1 : -1); // +1 means forward for team0
+      this.ball.vx = passDir * 180 + carrier.vx;
+      this.ball.vy = (Math.random() - 0.5) * 60 + carrier.vy;
+      this.ball.vz = 40;
+      this.ball.onGround = false;
+      this.ball.loose = true;
+      this.ball.team = -1;
+      this.events.push({type:'forward_pass', msg:'Passe en l\'air... libre !', dur:2});
+      return;
+    }
+
+    // Check for forward pass
+    const isForward = (carrier.teamIdx === 0 && target.x > carrier.x + 15) ||
+                       (carrier.teamIdx === 1 && target.x < carrier.x - 15);
+    if (isForward) {
+      carrier.hasBall = false;
+      this.ball.carrier = null;
+      this.ball.vx = (target.x - carrier.x) / 0.4;
+      this.ball.vy = (target.y - carrier.y) / 0.4;
+      this.ball.vz = 60;
+      this.ball.onGround = false;
+      this.ball.loose = true;
+      this.ball.team = -1;
+      this.events.push({type:'forward_pass', msg:'EN-AVANT !', dur:2.5});
+      this.pendingPenalty = {side: 1, x: carrier.x, y: carrier.y, reason: 'En-avant'};
+      return;
+    }
+
+    // Successful pass
+    carrier.hasBall = false;
+    this.ball.carrier = null;
+    this.ball.loose = false;
+    // Animate ball flight
+    const dx = target.x - carrier.x, dy = target.y - carrier.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const spd = 350;
+    this.ball.vx = dx/dist * spd + carrier.vx * 0.3;
+    this.ball.vy = dy/dist * spd + carrier.vy * 0.3;
+    this.ball.vz = 30;
+    this.ball.onGround = false;
+    this.ball.team = carrier.teamIdx;
+
+    // Schedule catch
+    const travelTime = dist / spd;
+    const tgt = target;
+    setTimeout(() => {
+      if (tgt && !tgt.onGround && !tgt.inRuck) {
+        tgt.hasBall = true;
+        this.ball.carrier = tgt;
+        this.ball.loose = false;
+        this.ball.team = carrier.teamIdx;
+        if (carrier.teamIdx === 0) {
+          this.controlledPlayer = tgt;
+        }
+      }
+    }, travelTime * 800);
+    this.stamina_drain(carrier, 0.015);
+  }
+
+  checkTackleCollisions() {
+    if (this.tackleBlock) return; // Already in tackle
+    const carrier = this.getBallCarrier();
+    if (!carrier) return;
+    const defenders = carrier.teamIdx === 0 ? this.team2 : this.team1;
+    const myTeam = carrier.teamIdx === 0 ? this.team1 : this.team2;
+
+    for (let def of defenders) {
+      if (def.onGround || def.inRuck || def.stunTime > 0) continue;
+      const d = carrier.dist(def);
+      const tackleRange = def.profile.r + carrier.profile.r + 4;
+      if (d < tackleRange) {
+        // Tackle collision!
+        const tType = def.tackleType || 'legs';
+        const tg = def.tackleGauge;
+        const cg = this.chargeState.gauge;
+
+        // Check if this is the player-controlled defender
+        if (def === this.controlledPlayer || def.teamIdx === 1) {
+          this.tackleBlock = new TackleBlock(carrier, def, tType, cg, tg || (0.3 + Math.random() * 0.4));
+          this.chargeState = { active: false, gauge: 0 };
+          def.tackleGauge = 0;
+          this.events.push({type:'tackle', msg:'Plaquage ' + tType + '!', dur:1.5});
+
+          // Switch control to nearest other player
+          if (carrier.teamIdx === 0) {
+            this.switchToNearestPlayer(carrier);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  updateRuck(dt) {
+    if (!this.ruck || !this.ruck.active) {
+      // Ruck resolved
+      const winner = this.ruck ? this.ruck.possession : this.possession;
+      this.possession = winner;
+      if (winner === 0) {
+        // My scrum half comes to pick up
+        const sh = this.getScrum9(0);
+        if (!sh.onGround) {
+          sh.hasBall = true;
+          this.ball.carrier = sh;
+          this.ball.team = 0;
+          this.controlledPlayer = sh;
+        }
+      } else {
+        // CPU scrum half picks up
+        const sh = this.getScrum9(1);
+        if (!sh.onGround) {
+          sh.hasBall = true;
+          this.ball.carrier = sh;
+          this.ball.team = 1;
+        }
+      }
+      this.ruck = null;
+      this.phase = 'open';
+      return;
+    }
+
+    // Player can add to ruck with right stick up
+    const ry = getRY();
+    if (ry < -0.5 && !this._ruckJustAdded) {
+      const nearest = this.getNearestPlayerTo(this.ruck.x, this.ruck.y, 0, true);
+      if (nearest && nearest !== this.controlledPlayer) {
+        const quality = Math.min(1, Math.abs(ry));
+        if (quality > 0.85) {
+          this.events.push({type:'penalty', msg:'Plongeon dans le ruck ! Pénalité.', dur:2});
+          this.pendingPenalty = {side: 1, x: this.ruck.x, y: this.ruck.y, reason: 'Ruck plongeon'};
+        } else {
+          this.ruck.addPlayer(nearest, true);
+        }
+        this._ruckJustAdded = true;
+        setTimeout(() => { this._ruckJustAdded = false; }, 500);
+      }
+    }
+
+    this.ruck.update(dt);
+
+    // CPU adds players to ruck
+    if (Math.random() < dt * 0.5 && this.ruck.defensePlayers.length < 2) {
+      const nearest = this.getNearestPlayerTo(this.ruck.x, this.ruck.y, 1, false);
+      if (nearest && !nearest.inRuck && !nearest.onGround) {
+        this.ruck.addPlayer(nearest, false);
+      }
+    }
+
+    // Scrum half comes to collect if attack bar high enough
+    if (this.ruck.attackBar > 0.7 && this.ruck.timeToPlay < 3) {
+      const sh = this.getScrum9(this.ruck.possession);
+      sh.x = this.ruck.x;
+      sh.y = this.ruck.y + (this.ruck.possession === 0 ? -15 : 15);
+    }
+
+    // D-pad shortcuts in ruck
+    this.handleDpad();
+    this.updateCPU(dt);
+  }
+
+  updateScrum(dt) {
+    if (!this.scrum) { this.phase = 'open'; return; }
+    this.scrum.update(dt);
+    if (this.scrum.phase === 'done') {
+      if (this.scrum.penalized >= 0) {
+        this.pendingPenalty = {side: 1 - this.scrum.penalized, x: this.scrum.x, y: this.scrum.y, reason: 'Mêlée'};
+        this.triggerPenaltyChoice();
+      } else if (this.scrum.settled) {
+        // Ball comes out from scrum
+        const sh = this.getScrum9(this.scrum.possession_winner);
+        sh.hasBall = true;
+        this.ball.carrier = sh;
+        this.ball.team = this.scrum.possession_winner;
+        if (this.scrum.possession_winner === 0) this.controlledPlayer = sh;
+        this.phase = 'open';
+      }
+      this.scrum = null;
+    }
+  }
+
+  updateLineout(dt) {
+    if (!this.lineout) { this.phase = 'open'; return; }
+    this.lineout.update(dt);
+    if (this.lineout.phase === 'done' || this.lineout.phase === 'done_fail') {
+      if (this.lineout.success) {
+        // Ball won by throwing team
+        const sh = this.getScrum9(this.lineout.possession);
+        sh.hasBall = true;
+        this.ball.carrier = sh;
+        this.ball.team = this.lineout.possession;
+        if (this.lineout.possession === 0) {
+          this.controlledPlayer = sh;
+        }
+      } else {
+        // Turnover or scrum
+        this.startScrum(this.lineout.x, this.lineout.y, 1 - this.lineout.possession);
+        this.lineout = null;
+        return;
+      }
+      this.lineout = null;
+      this.phase = 'open';
+    }
+  }
+
+  updatePenaltyChoice(dt) {
+    const pc = this.pendingPenaltyChoice;
+    if (!pc) { this.phase = 'open'; return; }
+    if (dUp()) pc.selected = (pc.selected - 1 + 4) % 4;
+    if (dDown()) pc.selected = (pc.selected + 1) % 4;
+    if (btnAP()) {
+      this.executePenaltyChoice(pc);
+    }
+  }
+
+  updatePenaltyKick(dt) {
+    if (!this.penaltyKick) { this.phase = 'open'; return; }
+    this.penaltyKick.update(dt);
+    if (this.penaltyKick.phase === 'done') {
+      this.penaltyKick = null;
+      this.phase = 'open';
+    }
+  }
+
+  triggerPenaltyChoice() {
+    if (!this.pendingPenalty || this.pendingPenalty.side !== 0) {
+      // CPU gets penalty - cpu decides automatically
+      this.cpuPenaltyDecision();
+      return;
+    }
+    this.pendingPenaltyChoice = {
+      selected: 0,
+      x: this.pendingPenalty.x,
+      y: this.pendingPenalty.y,
+      reason: this.pendingPenalty.reason,
+      side: this.pendingPenalty.side
+    };
+    this.phase = 'penaltyChoice';
+  }
+
+  executePenaltyChoice(pc) {
+    switch(pc.selected) {
+      case 0: // Play quick
+        this.phase = 'open';
+        // Opponents back 10m
+        this.pushTeamBack(1, pc.x);
+        break;
+      case 1: // Goal kick
+        this.penaltyKick = new PenaltyKick(pc.x, pc.y, 0, 'penalty', this);
+        this.phase = 'penaltyKick';
+        break;
+      case 2: // Scrum
+        this.startScrum(pc.x, pc.y, 0);
+        break;
+      case 3: // Penalty touch (tap kick)
+        this.kickState = new KickState(this.controlledPlayer, 'clearance');
+        this.phase = 'open';
+        break;
+    }
+    this.pendingPenalty = null;
+    this.pendingPenaltyChoice = null;
+  }
+
+  cpuPenaltyDecision() {
+    // CPU logic: kick goal if in range, else play
+    const p = this.pendingPenalty;
+    if (!p) return;
+    const postX = X_TRY_L; // CPU attacks toward left
+    const dist = Math.sqrt((p.x - postX)**2 + (p.y - Y_MID)**2) / SCALE;
+    if (dist < 45) {
+      // Try to kick
+      this.events.push({type:'penalty', msg:'L\'adversaire tente le tir !', dur:2});
+      setTimeout(() => {
+        const success = Math.random() < (0.75 - dist/100);
+        if (success) {
+          this.score[1] += 3;
+          this.events.push({type:'goal', msg:'Pénalité ! 3 pts adversaire', dur:3});
+        } else {
+          this.events.push({type:'miss', msg:'Raté !', dur:2});
+        }
+        this.setupAfterScore(false);
+      }, 2000);
+    } else {
+      this.phase = 'open';
+      this.pushTeamBack(0, p.x);
+    }
+    this.pendingPenalty = null;
+  }
+
+  penaltyKickDone(success, type, team) {
+    if (success) {
+      const pts = type === 'penalty' ? 3 : 2;
+      this.score[team] += pts;
+      this.events.push({type:'goal', msg: type === 'penalty' ? `PÉNALITÉ ! +3 pts` : `TRANSFORMATION ! +2 pts`, dur:3});
+    }
+    this.setupAfterScore(success);
+  }
+
+  setupAfterScore(scored) {
+    // Renvoi depuis mi-terrain (engagement)
+    setTimeout(() => {
+      this.setupKickoff();
+      // Other team kicks off after score
+    }, 1500);
+  }
+
+  startRuck(carrier, tackler) {
+    this.ruck = new Ruck(carrier, tackler, carrier.x, carrier.y);
+    this.phase = 'ruck';
+    carrier.inRuck = true;
+    tackler.inRuck = true;
+    // Nearest player becomes controlled
+    this.switchToNearestPlayer(carrier);
+  }
+
+  startScrum(x, y, possession) {
+    this.scrum = new Scrum(x, y, possession, this);
+    this.phase = 'scrum';
+  }
+
+  startLineout(x, y, possession) {
+    this.lineout = new Lineout(x, y, possession, this);
+    this.phase = 'lineout';
+  }
+
+  checkTouch() {
+    if (this.ball.inTouch) {
+      const bx = this.ball.x, by = this.ball.touchY || this.ball.y;
+      const possession = 1 - (this.ball.team === 0 ? 0 : 1); // lineout to other team
+      this.ball.inTouch = false;
+      this.ball.vx = this.ball.vy = 0;
+      this.ball.loose = false;
+      // Apply 50-22 rule
+      let lineoutTeam = possession;
+      if (this.lastKickPos && this.lastKickType !== 'grubber') {
+        const kickerTeam = this.lastKickPos.team;
+        const kickerX = this.lastKickPos.x;
+        if (kickerTeam === 0 && kickerX < X_22L && bx > X_22R) {
+          // 50-22: kicked from own 22, lands in opponent 22
+          lineoutTeam = 0;
+          this.events.push({type:'50-22', msg:'50-22 ! Touche pour vous !', dur:3});
+        }
+      }
+      this.lastKickPos = null;
+      this.events.push({type:'touch', msg:'EN TOUCHE !', dur:2});
+      // Direct touch from outside 22 = lineout at kick spot
+      setTimeout(() => {
+        this.startLineout(Math.max(X_TRY_L, Math.min(X_TRY_R, bx)), by, lineoutTeam);
+      }, 1000);
+    }
+  }
+
+  checkTry() {
+    const carrier = this.getBallCarrier();
+    if (!carrier) return;
+    const inGoalLeft  = carrier.x < X_TRY_L && carrier.x > FX;
+    const inGoalRight = carrier.x > X_TRY_R && carrier.x < FX + FW;
+    const tryForTeam0 = inGoalRight && carrier.teamIdx === 0;
+    const tryForTeam1 = inGoalLeft  && carrier.teamIdx === 1;
+
+    if (tryForTeam0 || tryForTeam1) {
+      // Aplatir action
+      const pAplatr = btnAP() || INPUT.kb['Enter'];
+      if (pAplatr || carrier.teamIdx === 1) { // CPU auto-tries
+        const team = carrier.teamIdx;
+        carrier.hasBall = false;
+        this.ball.carrier = null;
+        this.score[team] += 5;
+        this.events.push({type:'try', msg:'ESSAI !!! +5 pts', dur:4});
+        // Conversion kick
+        setTimeout(() => {
+          if (team === 0) {
+            this.penaltyKick = new PenaltyKick(carrier.x, carrier.y, team, 'conversion', this);
+            this.phase = 'penaltyKick';
+          } else {
+            // CPU conversion
+            const success = Math.random() < 0.7;
+            if (success) {
+              this.score[1] += 2;
+              this.events.push({type:'goal', msg:'Transformation ! +2', dur:3});
+            }
+            this.setupAfterScore(true);
+          }
+        }, 2500);
+      }
+    }
+  }
+
+  handleDpad() {
+    if (dUp()) {
+      const now = Date.now();
+      if (now - this.dUpLastTime < 400) this.dUpCount++;
+      else this.dUpCount = 1;
+      this.dUpLastTime = now;
+      if (this.dUpCount >= 2) {
+        // Rush defense
+        this.rushDefenseActivate();
+        this.dUpCount = 0;
+      } else {
+        // 3/4 line advance
+        this.advance34Line();
+      }
+    }
+    if (dDown()) {
+      // Kicker reposition
+    }
+    if (dLeft()) {
+      this.defenseSpacing = Math.max(1, this.defenseSpacing - 1);
+      this.events.push({type:'tactical', msg:'Ligne resserrée', dur:1});
+    }
+    if (dRight()) {
+      this.defenseSpacing = Math.min(5, this.defenseSpacing + 1);
+      this.events.push({type:'tactical', msg:'Ligne élargie', dur:1});
+    }
+  }
+
+  rushDefenseActivate() {
+    // All defenders rush up
+    for (let p of this.team1) {
+      if (!p.onGround && !p.inRuck && !p.hasBall) {
+        p.vx += (this.team2BallX() - p.x) > 0 ? 200 : 0;
+      }
+    }
+    this.events.push({type:'tactical', msg:'RUSH DÉFENSE !', dur:1.5});
+  }
+
+  advance34Line() {
+    // Wings and centers advance
+    const backs = [this.team1[10], this.team1[11], this.team1[12], this.team1[13], this.team1[14]];
+    for (let b of backs) {
+      if (!b.onGround && !b.inRuck) {
+        b.vx += 80;
+      }
+    }
+    this.events.push({type:'tactical', msg:'3/4 en avant !', dur:1});
+  }
+
+  team2BallX() {
+    const carrier = this.team2.find(p => p.hasBall);
+    return carrier ? carrier.x : X_MID;
+  }
+
+  switchToNearestPlayer(avoidPlayer) {
+    let nearest = null, minD = Infinity;
+    for (let p of this.team1) {
+      if (p === avoidPlayer || p.onGround || p.inRuck) continue;
+      const d = p.distPt(this.ball.x, this.ball.y);
+      if (d < minD) { minD = d; nearest = p; }
+    }
+    if (nearest) this.controlledPlayer = nearest;
+  }
+
+  getNearestPlayerTo(x, y, teamIdx, skipControlled) {
+    const team = teamIdx === 0 ? this.team1 : this.team2;
+    let nearest = null, minD = Infinity;
+    for (let p of team) {
+      if (p.onGround || p.inRuck) continue;
+      if (skipControlled && p === this.controlledPlayer) continue;
+      const d = p.distPt(x, y);
+      if (d < minD) { minD = d; nearest = p; }
+    }
+    return nearest;
+  }
+
+  autoChase() {
+    if (!this.ball.loose) return;
+    // Both teams chase
+    const nearest0 = this.getNearestPlayerTo(this.ball.x, this.ball.y, 0, false);
+    const nearest1 = this.getNearestPlayerTo(this.ball.x, this.ball.y, 1, false);
+    const target = (x, y) => ({ x: this.ball.x - x, y: this.ball.y - y });
+
+    if (nearest0 && !nearest0.hasBall) {
+      const t = target(nearest0.x, nearest0.y);
+      const d = Math.sqrt(t.x*t.x + t.y*t.y);
+      if (d > 5) {
+        nearest0.vx = t.x / d * nearest0.maxSpeed() * 0.9;
+        nearest0.vy = t.y / d * nearest0.maxSpeed() * 0.9;
+      }
+      if (d < nearest0.profile.r + 10) {
+        nearest0.hasBall = true;
+        this.ball.carrier = nearest0;
+        this.ball.loose = false;
+        this.ball.team = 0;
+        this.controlledPlayer = nearest0;
+      }
+    }
+    if (nearest1 && !nearest1.hasBall) {
+      const t = target(nearest1.x, nearest1.y);
+      const d = Math.sqrt(t.x*t.x + t.y*t.y);
+      if (d > 5) {
+        nearest1.vx = t.x / d * nearest1.maxSpeed() * 0.9;
+        nearest1.vy = t.y / d * nearest1.maxSpeed() * 0.9;
+      }
+      if (d < nearest1.profile.r + 10) {
+        nearest1.hasBall = true;
+        this.ball.carrier = nearest1;
+        this.ball.loose = false;
+        this.ball.team = 1;
+      }
+    }
+  }
+
+  pushTeamBack(teamIdx, penaltyX) {
+    const team = teamIdx === 0 ? this.team1 : this.team2;
+    const dir = teamIdx === 0 ? -1 : 1;
+    for (let p of team) {
+      p.x += dir * 10 * SCALE; // 10m back
+    }
+  }
+
+  stamina_drain(p, amount) {
+    p.stamina = Math.max(0, p.stamina - amount);
+  }
+
+  // ============================================================
+  // CPU AI
+  // ============================================================
+  updateCPU(dt) {
+    const carrier = this.team2.find(p => p.hasBall);
+    const ball = this.ball;
+
+    if (carrier) {
+      // CPU has ball - attack
+      this.cpuAttack(carrier, dt);
+    } else if (ball.team === 0 || (ball.loose && !ball.carrier)) {
+      // CPU defends
+      this.cpuDefend(dt);
+    }
+  }
+
+  cpuAttack(carrier, dt) {
+    const targetX = X_TRY_L; // CPU attacks left
+    const dx = targetX - carrier.x;
+    const dy = Y_MID - carrier.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+
+    // Run toward try line (but seek intervals)
+    const myTeam = this.team1;
+    let bestGap = {x: targetX, y: carrier.y};
+    let minDefDist = Infinity;
+
+    // Find gap between defenders
+    for (let def of myTeam) {
+      if (def.onGround || def.inRuck) continue;
+      const defDist = def.distPt(targetX, carrier.y);
+      if (defDist < minDefDist) {
+        minDefDist = defDist;
+        // Find gap to run into
+        const gap = this.findGap(carrier, myTeam);
+        bestGap = gap;
+      }
+    }
+
+    const gx = bestGap.x - carrier.x;
+    const gy = bestGap.y - carrier.y;
+    const gm = Math.sqrt(gx*gx + gy*gy);
+    if (gm > 10) {
+      carrier.vx = gx/gm * carrier.maxSpeed();
+      carrier.vy = gy/gm * carrier.maxSpeed();
+    }
+
+    // CPU charge when running toward defenders
+    carrier.chargeGauge = Math.min(0.75, carrier.chargeGauge + dt * 0.3);
+
+    // Pass to support when needed
+    const nearDef = myTeam.find(def => !def.onGround && carrier.dist(def) < 30);
+    if (nearDef && Math.random() < dt * 0.8) {
+      this.cpuPass(carrier);
+    }
+
+    // CPU kick when in own half and under pressure
+    const pressure = myTeam.filter(def => !def.onGround && carrier.dist(def) < 60).length;
+    if (pressure >= 2 && carrier.x > X_MID && Math.random() < dt * 0.3) {
+      this.cpuKick(carrier);
+    }
+
+    // Support players spread diagonally
+    this.spreadCPUAttack(carrier);
+  }
+
+  findGap(carrier, defenders) {
+    const fy = carrier.y;
+    let bestGap = { x: carrier.teamIdx === 1 ? carrier.x - 40 : carrier.x + 40, y: fy, score: 0 };
+    // Check multiple y positions for gaps
+    for (let ty = FY + 20; ty < FY + FH - 20; ty += 20) {
+      let minDefDist = Infinity;
+      for (let def of defenders) {
+        if (def.onGround || def.inRuck) continue;
+        const d = Math.sqrt((def.x - (carrier.x - 40))**2 + (def.y - ty)**2);
+        if (d < minDefDist) minDefDist = d;
+      }
+      if (minDefDist > bestGap.score) {
+        bestGap = { x: carrier.x - 40, y: ty, score: minDefDist };
+      }
+    }
+    return bestGap;
+  }
+
+  cpuPass(carrier) {
+    const teammates = this.team2.filter(p => p !== carrier && !p.onGround && !p.inRuck);
+    const nearest = teammates.sort((a,b) => carrier.dist(a) - carrier.dist(b))[0];
+    if (!nearest) return;
+    // Check backward
+    const isBackward = (carrier.teamIdx === 1 && nearest.x > carrier.x);
+    if (!isBackward) return; // Only pass backward
+    carrier.hasBall = false;
+    this.ball.carrier = null;
+    const dx = nearest.x - carrier.x, dy = nearest.y - carrier.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    this.ball.vx = dx/d * 280 + carrier.vx * 0.3;
+    this.ball.vy = dy/d * 280 + carrier.vy * 0.3;
+    this.ball.vz = 25;
+    this.ball.onGround = false;
+    this.ball.team = 1;
+    const spd = 280, travelTime = d/spd;
+    const tgt = nearest;
+    setTimeout(() => {
+      if (tgt && !tgt.onGround) {
+        tgt.hasBall = true;
+        this.ball.carrier = tgt;
+        this.ball.loose = false;
+        this.ball.team = 1;
+      }
+    }, travelTime * 800);
+  }
+
+  cpuKick(carrier) {
+    if (this.ball.carrier !== carrier) return;
+    carrier.hasBall = false;
+    this.ball.carrier = null;
+    const targetX = FX + FW - 80; // kick deep into player's half
+    const dx = targetX - carrier.x, dy = Y_MID - carrier.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    this.ball.vx = dx/d * 250;
+    this.ball.vy = dy/d * 250;
+    this.ball.vz = 120 + Math.random() * 60;
+    this.ball.onGround = false;
+    this.ball.loose = true;
+    this.ball.team = -1;
+    this.lastKickPos = { x: carrier.x, y: carrier.y, team: 1 };
+    this.events.push({type:'kick', msg:'Dégagement CPU', dur:1.5});
+    // Switch player control to nearest to receive
+    const fb = this.team1[14];
+    this.controlledPlayer = fb;
+  }
+
+  cpuDefend(dt) {
+    const ball = this.ball;
+    const carrier = this.getBallCarrier() || { x: ball.x, y: ball.y, teamIdx: 0 };
+
+    // Organize defense line
+    const lineX = carrier.x + (carrier.teamIdx === 0 ? -30 : 30);
+
+    for (let def of this.team2) {
+      if (def.onGround || def.inRuck || def.hasBall) continue;
+
+      // Nearest defender rushes carrier
+      const dist = def.distPt(carrier.x, carrier.y);
+      if (dist < 200) {
+        // Move toward ball carrier
+        const dx = carrier.x - def.x, dy = carrier.y - def.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d > def.profile.r + 5) {
+          def.vx = dx/d * def.maxSpeed() * 0.8;
+          def.vy = dy/d * def.maxSpeed() * 0.8;
+        }
+        // Set tackle gauge
+        if (d < 80) {
+          def.tackleGauge = Math.min(0.8, def.tackleGauge + dt * 0.5);
+          def.tackleType = ['legs','waist','arms'][Math.floor(Math.random()*3)];
+        }
+      } else {
+        // Hold line
+        const targetX = lineX + (def.posIdx < 8 ? (def.posIdx - 4) * 12 : 0);
+        const targetY = FY + FH * (def.posIdx / 15);
+        const dx = targetX - def.x, dy = targetY - def.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d > 15) {
+          def.vx = dx/d * def.maxSpeed() * 0.4;
+          def.vy = dy/d * def.maxSpeed() * 0.4;
+        }
+      }
+    }
+
+    // Check CPU tackle collision
+    if (carrier && carrier.teamIdx === 0 && carrier.hasBall) {
+      for (let def of this.team2) {
+        if (def.onGround || def.inRuck || def.stunTime > 0) continue;
+        const d = carrier.dist(def);
+        if (d < def.profile.r + carrier.profile.r + 4 && !this.tackleBlock) {
+          const tg = Math.min(0.8, def.tackleGauge || 0.4 + Math.random() * 0.3);
+          const tType = def.tackleType || 'waist';
+          this.tackleBlock = new TackleBlock(carrier, def, tType, this.chargeState.gauge, tg);
+          this.chargeState = { active: false, gauge: 0 };
+          this.switchToNearestPlayer(carrier);
+          break;
+        }
+      }
+    }
+  }
+
+  spreadCPUAttack(carrier) {
+    // 3/4 diagonal spread
+    const backs = this.team2.filter((p,i) => i >= 9 && !p.onGround && !p.inRuck && !p.hasBall);
+    const baseX = carrier.x + 30;
+    backs.forEach((p, i) => {
+      const targetX = baseX + i * 25;
+      const targetY = FY + FH * 0.2 + i * (FH * 0.15);
+      const dx = targetX - p.x, dy = targetY - p.y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d > 20) {
+        p.vx = dx/d * p.maxSpeed() * 0.5;
+        p.vy = dy/d * p.maxSpeed() * 0.5;
+      }
+    });
+  }
+
+  draw() {
+    drawField();
+    if (this.ruck) this.ruck.draw();
+    if (this.scrum) this.scrum.draw();
+    if (this.lineout) this.lineout.draw();
+    // Players
+    const t1 = this.team1Data, t2 = this.team2Data;
+    for (let p of this.team2) {
+      p.draw(t2.c1, t2.c2, t2.c3, t2.style);
+    }
+    for (let p of this.team1) {
+      p.isSelected = (p === this.controlledPlayer);
+      p.draw(t1.c1, t1.c2, t1.c3, t1.style);
+    }
+    // Ball
+    this.ball.draw();
+    // Kick state overlay
+    if (this.kickState) this.kickState.draw();
+    if (this.penaltyKick) this.penaltyKick.draw();
+    // Referee
+    drawReferee(this);
+    // HUD
+    drawHUD(this);
+    // Penalty choice
+    drawPenaltyChoice(this);
+
+    // Pass charge visual (ball in front of carrier)
+    if (this.passState.active) {
+      const carrier = this.getBallCarrier();
+      if (carrier) {
+        const offset = this.passState.dir * this.passState.gauge * 20;
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = gaugeColor(this.passState.gauge);
+        ctx.beginPath();
+        ctx.ellipse(carrier.x + offset, carrier.y, 6, 4, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // Fulltime screen
+    if (this.phase === 'fulltime') {
+      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 48px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('COUP DE SIFFLET FINAL', W/2, H/2 - 60);
+      ctx.font = 'bold 36px Arial';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`${this.team1Data.name || 'Équipe 1'}  ${this.score[0]} - ${this.score[1]}  ${this.team2Data.name || 'Équipe 2'}`, W/2, H/2);
+      const winner = this.score[0] > this.score[1] ? (this.team1Data.name || 'Équipe 1') :
+                      this.score[1] > this.score[0] ? (this.team2Data.name || 'Équipe 2') : 'Égalité !';
+      ctx.fillStyle = '#00FF44';
+      ctx.font = 'bold 28px Arial';
+      ctx.fillText(this.score[0] !== this.score[1] ? winner + ' gagne !' : 'Match nul !', W/2, H/2 + 50);
+      ctx.fillStyle = '#888';
+      ctx.font = '16px Arial';
+      ctx.fillText('[Start] Retour au menu', W/2, H/2 + 100);
+      if (btnStart()) GAME.state = 'menu';
+    }
+  }
+}
+// ============================================================
+// MENU SYSTEM
+// ============================================================
+const MENU = {
+  state: 'main',  // main, continent, league, teamSelect, management, toss
+  cursor: 0,
+  teamCursor: 0,
+  selectedTeam1: null,
+  selectedTeam2: null,
+  choosingFor: 1,  // 1 = player team, 2 = CPU team
+  continentList: [],
+  teamList: [],
+  currentContinent: null,
+  currentLeague: null,
+  managementCursor: 0,
+  managementTeam: null,
+  managementPlayers: [],
+  tossPick: 0,      // 0=kickoff, 1=receive
+  prevDUp: false, prevDDown: false, prevDLeft: false, prevDRight: false,
+  prevA: false, prevB: false,
+
+  init() {
+    this.state = 'main';
+    this.cursor = 0;
+    this.teamCursor = 0;
+    this.selectedTeam1 = null;
+    this.selectedTeam2 = null;
+    this.continentList = Object.keys(TEAM_DB);
+    this.choosingFor = 1;
+  },
+
+  update(dt) {
+    INPUT.poll();
+    const up    = dUp();
+    const down  = dDown();
+    const left  = dLeft();
+    const right = dRight();
+    const aP    = btnAP();
+    const bP    = btnBP();
+    // Keyboard fallback
+    const kbUp    = (INPUT.kb['ArrowUp']    && !INPUT._prevKb?.['ArrowUp']);
+    const kbDown  = (INPUT.kb['ArrowDown']  && !INPUT._prevKb?.['ArrowDown']);
+    const kbLeft  = (INPUT.kb['ArrowLeft']  && !INPUT._prevKb?.['ArrowLeft']);
+    const kbRight = (INPUT.kb['ArrowRight'] && !INPUT._prevKb?.['ArrowRight']);
+    const kbEnter = (INPUT.kb['Enter']      && !INPUT._prevKb?.['Enter']);
+    const kbEsc   = (INPUT.kb['Escape']     && !INPUT._prevKb?.['Escape']);
+    INPUT._prevKb = {...INPUT.kb};
+
+    const goUp    = up    || kbUp;
+    const goDown  = down  || kbDown;
+    const goLeft  = left  || kbLeft;
+    const goRight = right || kbRight;
+    const goA     = aP   || kbEnter;
+    const goB     = bP   || kbEsc;
+
+    switch(this.state) {
+      case 'main': {
+        const opts = ['Match', 'Quitter'];
+        if (goUp   ) this.cursor = (this.cursor - 1 + opts.length) % opts.length;
+        if (goDown ) this.cursor = (this.cursor + 1) % opts.length;
+        if (goA) {
+          if (this.cursor === 0) { this.state = 'continent'; this.cursor = 0; this.choosingFor = 1; }
+          if (this.cursor === 1) { window.close(); }
+        }
+        break;
+      }
+      case 'continent': {
+        if (goUp  ) this.cursor = (this.cursor - 1 + this.continentList.length) % this.continentList.length;
+        if (goDown) this.cursor = (this.cursor + 1) % this.continentList.length;
+        if (goA) {
+          this.currentContinent = this.continentList[this.cursor];
+          const leagues = Object.keys(TEAM_DB[this.currentContinent]);
+          if (leagues.length === 1 && typeof TEAM_DB[this.currentContinent][leagues[0]] === 'object' && 'c1' in TEAM_DB[this.currentContinent][leagues[0]]) {
+            // Direct team list (like RÉTRO, SPECIAL)
+            this.teamList = Object.keys(TEAM_DB[this.currentContinent]).map(name => ({
+              name, data: TEAM_DB[this.currentContinent][name]
+            }));
+            this.state = 'teamSelect';
+          } else {
+            // Has leagues
+            this.state = 'league';
+          }
+          this.cursor = 0;
+        }
+        if (goB) { this.state = 'main'; this.cursor = 0; }
+        break;
+      }
+      case 'league': {
+        const leagues = Object.keys(TEAM_DB[this.currentContinent]);
+        if (goUp  ) this.cursor = (this.cursor - 1 + leagues.length) % leagues.length;
+        if (goDown) this.cursor = (this.cursor + 1) % leagues.length;
+        if (goA) {
+          this.currentLeague = leagues[this.cursor];
+          const leagueData = TEAM_DB[this.currentContinent][this.currentLeague];
+          if (leagueData.c1) {
+            // Directly a team
+            this.selectTeam(this.currentLeague, leagueData);
+          } else {
+            this.teamList = Object.keys(leagueData).map(name => ({
+              name, data: leagueData[name]
+            }));
+            this.state = 'teamSelect';
+          }
+          this.cursor = 0;
+        }
+        if (goB) { this.state = 'continent'; this.cursor = 0; }
+        break;
+      }
+      case 'teamSelect': {
+        if (goUp  ) this.cursor = (this.cursor - 1 + this.teamList.length) % this.teamList.length;
+        if (goDown) this.cursor = (this.cursor + 1) % this.teamList.length;
+        if (goA) {
+          const team = this.teamList[this.cursor];
+          this.selectTeam(team.name, team.data);
+        }
+        if (goB) { this.state = 'league'; this.cursor = 0; }
+        break;
+      }
+      case 'management': {
+        const opts = this.managementPlayers;
+        if (goUp   ) this.managementCursor = (this.managementCursor - 1 + opts.length) % opts.length;
+        if (goDown ) this.managementCursor = (this.managementCursor + 1) % opts.length;
+        if (goA) {
+          // Confirm lineup and go to toss
+          this.state = 'toss';
+          this.cursor = 0;
+          this.tossPick = 0;
+        }
+        if (goB) { this.state = 'continent'; this.cursor = 0; }
+        break;
+      }
+      case 'toss': {
+        if (goLeft || goRight) this.tossPick = 1 - this.tossPick;
+        if (goUp || goDown) this.tossPick = 1 - this.tossPick;
+        if (goA) {
+          // Start match
+          this.startMatch();
+        }
+        break;
+      }
+    }
+  },
+
+  selectTeam(name, data) {
+    const teamObj = {...data, name};
+    if (this.choosingFor === 1) {
+      this.selectedTeam1 = teamObj;
+      this.managementPlayers = [...(data.players || [])];
+      this.managementTeam = teamObj;
+      this.state = 'management';
+      this.managementCursor = 0;
+      this.choosingFor = 2;
+    } else {
+      this.selectedTeam2 = teamObj;
+      // Auto-pick CPU lineup
+      this.startMatch();
+    }
+  },
+
+  startMatch() {
+    if (!this.selectedTeam1 || !this.selectedTeam2) return;
+    const t1 = this.selectedTeam1;
+    const t2 = this.selectedTeam2;
+    const t1players = (t1.players || []).slice(0, 15);
+    const t2players = (t2.players || []).slice(0, 15);
+    // Fill to 15 if needed
+    while (t1players.length < 15) t1players.push(genPlayer(70, t1players.length));
+    while (t2players.length < 15) t2players.push(genPlayer(70, t2players.length));
+    match = new Match(t1, t2, t1players, t2players);
+    GAME.state = 'match';
+  },
+
+  draw() {
+    // Animated background
+    ctx.fillStyle = '#0a1a0a';
+    ctx.fillRect(0, 0, W, H);
+    // Field outline in background
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(FX, FY, FW, FH);
+
+    // Title
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 42px Arial';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 8;
+    ctx.fillText('RUGBY XV', W/2, 70);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#aaa';
+    ctx.font = '14px Arial';
+    ctx.fillText('LE JEU COMPLET', W/2, 92);
+
+    switch(this.state) {
+      case 'main': this.drawMain(); break;
+      case 'continent': this.drawList('Choisir Continent / Catégorie', this.continentList); break;
+      case 'league': {
+        const leagues = Object.keys(TEAM_DB[this.currentContinent]);
+        this.drawList('Choisir Ligue / Groupe - ' + this.currentContinent, leagues);
+        break;
+      }
+      case 'teamSelect': this.drawTeamSelect(); break;
+      case 'management': this.drawManagement(); break;
+      case 'toss': this.drawToss(); break;
+    }
+
+    // Controller hint
+    ctx.fillStyle = '#444';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Manette Xbox | D-pad: Naviguer  [A]: Confirmer  [B]: Retour  —  ou Clavier: Flèches + Entrée + Echap', W/2, H - 12);
+  },
+
+  drawMain() {
+    const opts = ['⚽ Match', '✖ Quitter'];
+    const bw = 260, bh = 54;
+    opts.forEach((o, i) => {
+      const bx = W/2 - bw/2, by = H/2 - 40 + i * 70;
+      const selected = i === this.cursor;
+      ctx.fillStyle = selected ? 'rgba(255,215,0,0.2)' : 'rgba(0,0,0,0.5)';
+      roundRect(bx, by, bw, bh, 10); ctx.fill();
+      ctx.strokeStyle = selected ? '#FFD700' : '#444';
+      ctx.lineWidth = selected ? 2.5 : 1.5;
+      roundRect(bx, by, bw, bh, 10); ctx.stroke();
+      ctx.fillStyle = selected ? '#FFD700' : '#CCCCCC';
+      ctx.font = (selected ? 'bold ' : '') + '20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(o, W/2, by + 32);
+    });
+  },
+
+  drawList(title, items) {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, W/2, 130);
+
+    const visible = 12;
+    const start = Math.max(0, this.cursor - Math.floor(visible/2));
+    const end = Math.min(items.length, start + visible);
+    const bw = 380, bx = W/2 - bw/2;
+
+    for (let i = start; i < end; i++) {
+      const sel = i === this.cursor;
+      const by = 155 + (i - start) * 40;
+      ctx.fillStyle = sel ? 'rgba(255,215,0,0.18)' : 'rgba(0,0,0,0.4)';
+      roundRect(bx, by, bw, 34, 6); ctx.fill();
+      ctx.strokeStyle = sel ? '#FFD700' : '#333';
+      ctx.lineWidth = sel ? 2 : 1;
+      roundRect(bx, by, bw, 34, 6); ctx.stroke();
+      ctx.fillStyle = sel ? '#FFD700' : '#CCCCCC';
+      ctx.font = (sel ? 'bold ' : '') + '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText((sel ? '▶ ' : '  ') + items[i], W/2, by + 22);
+    }
+    ctx.fillStyle = '#666';
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${this.cursor + 1} / ${items.length}`, W/2, H - 35);
+  },
+
+  drawTeamSelect() {
+    const title = this.choosingFor === 1 ? 'VOTRE ÉQUIPE' : 'ÉQUIPE CPU';
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Choisir ${title} - ${this.currentLeague || this.currentContinent}`, W/2, 130);
+
+    const visible = 11;
+    const start = Math.max(0, this.cursor - Math.floor(visible/2));
+    const end = Math.min(this.teamList.length, start + visible);
+    const bw = 450, bx = W/2 - bw/2;
+
+    for (let i = start; i < end; i++) {
+      const sel = i === this.cursor;
+      const by = 155 + (i - start) * 44;
+      const team = this.teamList[i];
+      ctx.fillStyle = sel ? 'rgba(255,215,0,0.15)' : 'rgba(0,0,0,0.45)';
+      roundRect(bx, by, bw, 38, 6); ctx.fill();
+      // Team color swatch
+      ctx.fillStyle = team.data.c1 || '#888';
+      ctx.fillRect(bx + 8, by + 8, 18, 22);
+      if (team.data.c2) {
+        ctx.fillStyle = team.data.c2;
+        ctx.fillRect(bx + 18, by + 8, 8, 22);
+      }
+      ctx.strokeStyle = sel ? '#FFD700' : '#333';
+      ctx.lineWidth = sel ? 2 : 1;
+      roundRect(bx, by, bw, 38, 6); ctx.stroke();
+      ctx.fillStyle = sel ? '#FFD700' : '#CCCCCC';
+      ctx.font = (sel ? 'bold ' : '') + '13px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText((sel ? '▶ ' : '  ') + team.name, bx + 36, by + 24);
+      // Rating average
+      const avgRating = team.data.players ? Math.round(team.data.players.slice(0,15).reduce((s,p)=>s+(p.r||70),0)/15) : 70;
+      ctx.fillStyle = '#888';
+      ctx.font = '11px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText(`Note: ${avgRating}`, bx + bw - 10, by + 24);
+    }
+  },
+
+  drawManagement() {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('GESTION D\'ÉQUIPE - ' + (this.managementTeam?.name || ''), W/2, 120);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '11px Arial';
+    ctx.fillText('[A] Confirmer et continuer  |  Composition actuelle:', W/2, 138);
+
+    const bw = 600, bx = W/2 - bw/2;
+    const rows = Math.min(15, this.managementPlayers.length);
+    for (let i = 0; i < rows; i++) {
+      const p = this.managementPlayers[i];
+      if (!p) continue;
+      const by = 150 + i * 34;
+      const sel = i === this.managementCursor;
+      ctx.fillStyle = sel ? 'rgba(255,215,0,0.12)' : (i % 2 === 0 ? 'rgba(0,0,0,0.4)' : 'rgba(30,30,30,0.4)');
+      ctx.fillRect(bx, by, bw, 30);
+      ctx.fillStyle = sel ? '#FFD700' : '#ccc';
+      ctx.font = (sel ? 'bold ' : '') + '11px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${i+1}. ${PROFILES[i]?.pos || 'Joueur'}`, bx + 10, by + 20);
+      ctx.textAlign = 'center';
+      ctx.fillText(p.n, bx + bw/2, by + 20);
+      // Rating bar
+      const rw = 80;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(bx + bw - rw - 60, by + 8, rw, 12);
+      ctx.fillStyle = p.r >= 85 ? '#FFD700' : p.r >= 75 ? '#00CC44' : '#FF8C00';
+      ctx.fillRect(bx + bw - rw - 60, by + 8, rw * (p.r/100), 12);
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText(p.r, bx + bw - 8, by + 20);
+    }
+  },
+
+  drawToss() {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('TIRAGE AU SORT', W/2, 150);
+    ctx.fillStyle = '#888';
+    ctx.font = '13px Arial';
+    ctx.fillText('Le capitaine adverse lance la pièce... et vous la rattrapez !', W/2, 185);
+
+    // Coin flip animation
+    const coinX = W/2, coinY = H/2 - 50;
+    const t = Date.now() / 1000;
+    const coinW = 40 + Math.abs(Math.sin(t * 3)) * 20;
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.ellipse(coinX, coinY, coinW, 40, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#c8860a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#c8860a';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(Math.sin(t*3) > 0 ? '⚽' : '🏉', coinX, coinY + 7);
+
+    // Options
+    const opts = ['Engager (donner coup de pied)', 'Recevoir (laisser adversaire engager)'];
+    opts.forEach((o, i) => {
+      const sel = i === this.tossPick;
+      const bw = 380, bx = W/2 - bw/2, by = H/2 + 30 + i * 65;
+      ctx.fillStyle = sel ? 'rgba(255,215,0,0.2)' : 'rgba(0,0,0,0.5)';
+      roundRect(bx, by, bw, 52, 8); ctx.fill();
+      ctx.strokeStyle = sel ? '#FFD700' : '#555';
+      ctx.lineWidth = sel ? 2.5 : 1.5;
+      roundRect(bx, by, bw, 52, 8); ctx.stroke();
+      ctx.fillStyle = sel ? '#FFD700' : '#AAAAAA';
+      ctx.font = (sel ? 'bold ' : '') + '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText((sel ? '▶ ' : '') + o, W/2, by + 30);
+    });
+    ctx.fillStyle = '#888';
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('[D-pad ↑↓] Choisir  [A] Confirmer', W/2, H - 40);
+  }
+};
+
+// ============================================================
+// PAUSE MENU
+// ============================================================
+const PAUSE = {
+  cursor: 0,
+  opts: ['Reprendre', 'Gestion d\'équipe', 'Réglages', 'Quitter le match'],
+  settings: {
+    zoom5m: true,
+    highlightSpaces: false,
+    timeScale: 2,
+    difficulty: 'Normal',
+  },
+  subState: null, // null, 'settings'
+
+  draw() {
+    ctx.fillStyle = 'rgba(0,0,0,0.78)';
+    ctx.fillRect(0, 0, W, H);
+    const bw = 320, bh = 300, bx = W/2 - bw/2, by = H/2 - bh/2;
+    ctx.fillStyle = 'rgba(10,20,10,0.95)';
+    roundRect(bx, by, bw, bh, 12); ctx.fill();
+    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2;
+    roundRect(bx, by, bw, bh, 12); ctx.stroke();
+    ctx.fillStyle = '#FFD700'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('PAUSE', W/2, by + 30);
+
+    if (this.subState === 'settings') {
+      this.drawSettings(bx, by, bw, bh);
+      return;
+    }
+    this.opts.forEach((o, i) => {
+      const sel = i === this.cursor;
+      ctx.fillStyle = sel ? '#FFD700' : '#CCCCCC';
+      ctx.font = (sel ? 'bold ' : '') + '15px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText((sel ? '▶ ' : '  ') + o, W/2, by + 70 + i * 48);
+    });
+    ctx.fillStyle = '#555'; ctx.font = '10px Arial';
+    ctx.fillText('[D↑↓] Naviguer  [A] Confirmer', W/2, by + bh - 14);
+  },
+
+  drawSettings(bx, by, bw, bh) {
+    ctx.fillStyle = '#FFD700'; ctx.font = 'bold 15px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('RÉGLAGES', W/2, by + 55);
+    const settings = [
+      {label: 'Zoom dans les 5m', val: this.settings.zoom5m ? 'OUI' : 'NON'},
+      {label: 'Highlight espaces libres', val: this.settings.highlightSpaces ? 'OUI' : 'NON'},
+      {label: 'Difficulté', val: this.settings.difficulty},
+    ];
+    settings.forEach((s, i) => {
+      const sel = i === this.cursor;
+      ctx.fillStyle = sel ? '#FFD700' : '#aaa';
+      ctx.font = (sel ? 'bold ' : '') + '13px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${sel?'▶':' '} ${s.label}:`, bx + 20, by + 90 + i * 40);
+      ctx.textAlign = 'right';
+      ctx.fillText(s.val, bx + bw - 20, by + 90 + i * 40);
+    });
+    ctx.fillStyle = '#555'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('[B] Retour', W/2, by + bh - 14);
+  },
+
+  update() {
+    INPUT.poll();
+    const goUp   = dUp()   || (INPUT.kb['ArrowUp']   && !INPUT._prevKb?.['ArrowUp']);
+    const goDown = dDown() || (INPUT.kb['ArrowDown']  && !INPUT._prevKb?.['ArrowDown']);
+    const goA    = btnAP() || (INPUT.kb['Enter']      && !INPUT._prevKb?.['Enter']);
+    const goB    = btnBP() || (INPUT.kb['Escape']     && !INPUT._prevKb?.['Escape']);
+    INPUT._prevKb = {...INPUT.kb};
+
+    if (this.subState === 'settings') {
+      const settingKeys = ['zoom5m','highlightSpaces','difficulty'];
+      if (goUp  ) this.cursor = (this.cursor - 1 + settingKeys.length) % settingKeys.length;
+      if (goDown) this.cursor = (this.cursor + 1) % settingKeys.length;
+      if (goA) {
+        const k = settingKeys[this.cursor];
+        if (typeof this.settings[k] === 'boolean') this.settings[k] = !this.settings[k];
+        else if (k === 'difficulty') {
+          const opts = ['Facile','Normal','Difficile','Légendaire'];
+          const idx = opts.indexOf(this.settings.difficulty);
+          this.settings.difficulty = opts[(idx+1)%opts.length];
+        }
+      }
+      if (goB) { this.subState = null; this.cursor = 0; }
+      return;
+    }
+
+    if (goUp  ) this.cursor = (this.cursor - 1 + this.opts.length) % this.opts.length;
+    if (goDown) this.cursor = (this.cursor + 1) % this.opts.length;
+    if (goA) {
+      switch(this.cursor) {
+        case 0: GAME.state = 'match'; match.paused = false; break;
+        case 1: break; // team management
+        case 2: this.subState = 'settings'; this.cursor = 0; break;
+        case 3: GAME.state = 'menu'; MENU.init(); break;
+      }
+    }
+    if (goB || btnStart()) { GAME.state = 'match'; match.paused = false; }
+  }
+};
+
+// ============================================================
+// GAME CONTROLLER
+// ============================================================
+const GAME = {
+  state: 'menu', // menu, match, pause
+};
+
+let match = null;
+
+// ============================================================
+// MAIN GAME LOOP
+// ============================================================
+let lastTime = 0;
+function gameLoop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+
+  ctx.clearRect(0, 0, W, H);
+
+  switch(GAME.state) {
+    case 'menu':
+      MENU.update(dt);
+      MENU.draw();
+      break;
+    case 'match':
+      if (match) {
+        if (btnStart()) {
+          GAME.state = 'pause';
+          PAUSE.cursor = 0;
+          PAUSE.subState = null;
+        } else {
+          match.update(dt);
+        }
+        match.draw();
+      }
+      break;
+    case 'pause':
+      if (match) match.draw(); // Draw match behind
+      PAUSE.draw();
+      PAUSE.update();
+      break;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+MENU.init();
+requestAnimationFrame(gameLoop);
+
+console.log('Rugby XV chargé ! Connectez une manette Xbox ou utilisez le clavier (WASD/Flèches + IJKL + Z/X/C/V)');
+</script></body></html>
