@@ -2,12 +2,14 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Lame &amp; Cartes — Les Terres Sauvages</title>
 <style>
-  html,body{margin:0;padding:0;background:#0b0e14;height:100%;overflow:hidden;font-family:monospace}
+  html,body{margin:0;padding:0;background:#0b0e14;height:100%;overflow:hidden;font-family:monospace;
+    position:fixed;inset:0;width:100%;overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   #wrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000;box-shadow:0 0 60px #000}
-  canvas{position:absolute;left:0;top:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+  canvas{position:absolute;left:0;top:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none}
   #ui{cursor:crosshair}
 </style>
 </head>
@@ -36,13 +38,17 @@ const cvs=document.getElementById('game'), ctx=cvs.getContext('2d');
 const ucv=document.getElementById('ui'),   ux=ucv.getContext('2d');
 ctx.imageSmoothingEnabled=false; ux.imageSmoothingEnabled=false;
 
+const IS_TOUCH=('ontouchstart' in window)||(typeof navigator!=='undefined'&&navigator.maxTouchPoints>0);
+const TAP_WORD=IS_TOUCH?'Touchez':'Cliquez';
+
 function resize(){
   const w=window.innerWidth, h=window.innerHeight, a=W/H;
   let cw=w, ch=w/a; if(ch>h){ch=h;cw=h*a;}
   const el=document.getElementById('wrap');
   el.style.width=cw+'px'; el.style.height=ch+'px';
+  if(IS_TOUCH&&h>w&&state==='play')state='pause'; // portrait : on met en pause
 }
-window.addEventListener('resize',resize); resize();
+window.addEventListener('resize',resize);
 
 /* ---------------- utilitaires ---------------- */
 const TAU=Math.PI*2;
@@ -470,6 +476,12 @@ let msgQueue=[];         // bandeaux de message
 let mouse={x:0,y:0,down:false};
 let locked=false, time=0, shake=0, hitMark=0, dmgFlash=0, healFlash=0, blockFlash=0;
 const zbuf=new Float32Array(W);
+resize();
+
+// --- état tactile (iPhone/iPad/Android) ---
+let joyTouch=null, lookTouch=null, cardTouch=null;
+const joyVec={f:0,s:0};
+const PAUSE_BTN={x:UW-178,y:10,w:44,h:34};
 
 function newPlayer(){
   return {
@@ -589,7 +601,16 @@ function meleeAttack(dmg,range,halfAng,kb){
   if(hitAny){ hitMark=0.15; SFX.hit(); }
 }
 function spawnProj(kind,speed,dmg,r,friendly,aoe){
-  const a=P.a;
+  let a=P.a;
+  if(friendly&&IS_TOUCH){ // légère visée assistée au tactile
+    let best=null,bA=0.22;
+    for(const e of enemies){
+      if(e.st==='spawn')continue;
+      const ad=Math.abs(angDiff(Math.atan2(e.y-P.y,e.x-P.x),P.a));
+      if(ad<bA&&hasLOS(P.x,P.y,e.x,e.y)){bA=ad;best=e;}
+    }
+    if(best)a=Math.atan2(best.y-P.y,best.x-P.x);
+  }
   projs.push({kind,x:P.x+Math.cos(a)*0.5,y:P.y+Math.sin(a)*0.5,z:0.55,
     vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,dmg,r,friendly,aoe,ttl:3,a});
 }
@@ -716,6 +737,7 @@ function update(dt){
   if(keys['KeyS']||keys['ArrowDown'])mx-=1;
   if(keys['KeyA']||keys['ArrowLeft'])my-=1;
   if(keys['KeyD']||keys['ArrowRight'])my+=1;
+  mx+=joyVec.f; my+=joyVec.s;
   if(P.dashT>0){
     P.dashT-=dt;
     tryMove(P,P.dashVx*dt,P.dashVy*dt,0.3);
@@ -723,7 +745,7 @@ function update(dt){
       if(!P.dashHit.has(e)&&dist2(e.x,e.y,P.x,P.y)<1){ P.dashHit.add(e); damageEnemy(e,P.dashDmg,2,Math.atan2(e.y-P.y,e.x-P.x)); }
     }
   } else if(mx||my){
-    const l=Math.hypot(mx,my); mx/=l; my/=l;
+    const l=Math.hypot(mx,my); if(l>1){mx/=l;my/=l;} // joystick analogique : vitesse partielle
     const dx=(Math.cos(P.a)*mx-Math.sin(P.a)*my)*spd*dt;
     const dy=(Math.sin(P.a)*mx+Math.cos(P.a)*my)*spd*dt;
     tryMove(P,dx,dy,0.3);
@@ -1030,7 +1052,7 @@ function handLayout(){
   const out=[];
   for(let i=0;i<n;i++){
     const t=n>1?(i/(n-1)-0.5):0;
-    out.push({x:cx0+i*spread,y:UH-46+Math.abs(t)*16-(i===P.sel?18:0),rot:t*0.35,w:cw,h:ch});
+    out.push({x:cx0+i*spread,y:(IS_TOUCH?UH-62:UH-46)+Math.abs(t)*16-(i===P.sel?18:0),rot:t*0.35,w:cw,h:ch});
   }
   return out;
 }
@@ -1166,10 +1188,18 @@ function renderUI(){
   }
   for(let i=0;i<lay.length;i++){
     const L=lay[i], id=P.hand[i], c=CARDS[id];
-    drawCardFace(ux,L.x,L.y,L.w,L.h,id,{rot:L.rot,hot:i===P.sel,poor:P.energy<c.cost,dim:P.energy<c.cost});
-    ux.fillStyle='#ffe860'; ux.font='bold 10px monospace'; ux.textAlign='center';
-    ux.fillText(''+(i+1),L.x,L.y-L.h/2-6);
-    ux.textAlign='left';
+    let yo=0, dragging=cardTouch&&cardTouch.idx===i;
+    if(dragging)yo=clamp(cardTouch.dy,-12,70);
+    drawCardFace(ux,L.x,L.y+yo,L.w,L.h,id,{rot:L.rot,hot:i===P.sel,poor:P.energy<c.cost,dim:P.energy<c.cost});
+    if(dragging&&cardTouch.dy>45){
+      ux.fillStyle='#ff6050'; ux.font='bold 11px monospace'; ux.textAlign='center';
+      ux.fillText('DÉFAUSSER',L.x,L.y+yo-L.h/2-8); ux.textAlign='left';
+    }
+    if(!IS_TOUCH){
+      ux.fillStyle='#ffe860'; ux.font='bold 10px monospace'; ux.textAlign='center';
+      ux.fillText(''+(i+1),L.x,L.y-L.h/2-6);
+      ux.textAlign='left';
+    }
   }
   // carte jouée (animation)
   if(P.playAnim){
@@ -1180,8 +1210,32 @@ function renderUI(){
   }
   // aide
   ux.fillStyle='rgba(255,255,255,0.45)'; ux.font='9px monospace'; ux.textAlign='center';
-  ux.fillText('[1-4] jouer · molette : choisir · clic G : jouer · clic D / F : défausser',UW/2,UH-4);
+  ux.fillText(IS_TOUCH?'toucher une carte : jouer · glisser vers le bas : défausser'
+                      :'[1-6] jouer · molette : choisir · clic G : jouer · clic D / F : défausser',UW/2,UH-4);
   ux.textAlign='left';
+
+  // contrôles tactiles : joystick + bouton pause
+  if(IS_TOUCH&&state==='play'){
+    if(joyTouch){
+      ux.strokeStyle='rgba(255,255,255,0.5)'; ux.lineWidth=2;
+      ux.beginPath(); ux.arc(joyTouch.x0,joyTouch.y0,52,0,TAU); ux.stroke();
+      const kx=joyTouch.x0+clamp(joyTouch.x-joyTouch.x0,-52,52);
+      const ky=joyTouch.y0+clamp(joyTouch.y-joyTouch.y0,-52,52);
+      ux.fillStyle='rgba(255,255,255,0.55)';
+      ux.beginPath(); ux.arc(kx,ky,22,0,TAU); ux.fill();
+    } else {
+      ux.strokeStyle='rgba(255,255,255,0.18)'; ux.lineWidth=2;
+      ux.beginPath(); ux.arc(105,UH-150,46,0,TAU); ux.stroke();
+      ux.fillStyle='rgba(255,255,255,0.25)'; ux.font='9px monospace'; ux.textAlign='center';
+      ux.fillText('déplacer',105,UH-95);
+      ux.fillText('glisser à droite : regarder',UW*0.7,UH-130);
+      ux.textAlign='left';
+    }
+    ux.fillStyle='rgba(10,10,16,0.65)'; ux.fillRect(PAUSE_BTN.x,PAUSE_BTN.y,PAUSE_BTN.w,PAUSE_BTN.h);
+    ux.strokeStyle='rgba(255,255,255,0.5)'; ux.lineWidth=1; ux.strokeRect(PAUSE_BTN.x,PAUSE_BTN.y,PAUSE_BTN.w,PAUSE_BTN.h);
+    ux.fillStyle='#fff';
+    ux.fillRect(PAUSE_BTN.x+14,PAUSE_BTN.y+8,5,18); ux.fillRect(PAUSE_BTN.x+25,PAUSE_BTN.y+8,5,18);
+  }
 
   if(state==='reward')uiReward();
   if(state==='dead')uiDead();
@@ -1225,7 +1279,7 @@ function uiDead(){
   ux.fillText('Vague atteinte : '+P.wave+'    Monstres tués : '+P.kills,UW/2,UH/2-15);
   ux.fillText('Cartes dans le deck : '+(P.deck.length+P.discard.length+P.hand.length),UW/2,UH/2+8);
   ux.fillStyle='#ffe860'; ux.font='bold 14px monospace';
-  ux.fillText((Math.sin(time*4)>0?'> ':'  ')+'Cliquez pour recommencer'+(Math.sin(time*4)>0?' <':'  '),UW/2,UH/2+70);
+  ux.fillText((Math.sin(time*4)>0?'> ':'  ')+TAP_WORD+' pour recommencer'+(Math.sin(time*4)>0?' <':'  '),UW/2,UH/2+70);
   ux.textAlign='left';
 }
 function uiPause(){
@@ -1233,17 +1287,23 @@ function uiPause(){
   ux.textAlign='center';
   ux.fillStyle='#ffe860'; ux.font='bold 22px monospace'; ux.fillText('PAUSE',UW/2,UH/2-85);
   ux.fillStyle='#fff'; ux.font='11px monospace';
-  const lines=[
+  const lines=IS_TOUCH?[
+    'Moitié gauche de l’écran : joystick virtuel',
+    'Moitié droite : glisser pour regarder',
+    'Toucher une carte : la jouer',
+    'Glisser une carte vers le bas : la défausser',
+    '(la pioche se refait toute seule)',
+  ]:[
     'ZQSD / WASD / flèches : se déplacer',
     'Souris : regarder',
-    '1-4 : jouer une carte    molette : sélectionner',
+    '1-6 : jouer une carte    molette : sélectionner',
     'Clic gauche : jouer la carte sélectionnée',
     'Clic droit ou F : défausser (re-pioche auto)',
     'Échap : pause',
   ];
   let yy=UH/2-55; for(const l of lines){ ux.fillText(l,UW/2,yy); yy+=20; }
   ux.fillStyle='#ffe860'; ux.font='bold 13px monospace';
-  ux.fillText('Cliquez pour reprendre',UW/2,UH/2+90);
+  ux.fillText(TAP_WORD+' pour reprendre',UW/2,UH/2+90);
   ux.textAlign='left';
 }
 function uiMenu(){
@@ -1262,16 +1322,17 @@ function uiMenu(){
     'Attaque, défense, bonus, mouvement : gérez votre main, votre énergie',
     'et votre deck. Après chaque vague, ajoutez une nouvelle carte.',
     '',
-    'ZQSD + souris pour bouger · 1-4 pour jouer · clic D pour défausser',
+    IS_TOUCH?'Joystick à gauche · glisser à droite pour regarder · toucher une carte pour la jouer'
+            :'ZQSD + souris pour bouger · 1-6 pour jouer · clic D pour défausser',
   ];
   let yy=UH*0.48; for(const l of lines){ ux.fillText(l,UW/2,yy); yy+=18; }
   ux.fillStyle='#ffe860'; ux.font='bold 16px monospace';
-  ux.fillText((Math.sin(time*4)>0?'> ':'  ')+'CLIQUEZ POUR PARTIR À L’AVENTURE'+(Math.sin(time*4)>0?' <':'  '),UW/2,UH*0.82);
+  ux.fillText((Math.sin(time*4)>0?'> ':'  ')+(IS_TOUCH?'TOUCHEZ':'CLIQUEZ')+' POUR PARTIR À L’AVENTURE'+(Math.sin(time*4)>0?' <':'  '),UW/2,UH*0.82);
   ux.textAlign='left';
 }
 
 /* ---------------- entrées ---------------- */
-function lockPointer(){ try{ ucv.requestPointerLock&&ucv.requestPointerLock(); }catch(e){} }
+function lockPointer(){ if(IS_TOUCH)return; try{ ucv.requestPointerLock&&ucv.requestPointerLock(); }catch(e){} }
 document.addEventListener('pointerlockchange',()=>{
   locked=document.pointerLockElement===ucv;
   if(!locked&&state==='play')state='pause';
@@ -1288,14 +1349,7 @@ ucv.addEventListener('mousedown',e=>{
   if(state==='menu'){ startRun(); return; }
   if(state==='pause'){ state='play'; lockPointer(); return; }
   if(state==='dead'){ startRun(); return; }
-  if(state==='reward'){
-    const lay=rewardLayout();
-    for(let i=0;i<4;i++){
-      const L=lay[i];
-      if(Math.abs(mouse.x-L.x)<L.w/2&&Math.abs(mouse.y-L.y)<L.h/2){ chooseReward(L.skip?-1:i); return; }
-    }
-    return;
-  }
+  if(state==='reward'){ rewardHit(mouse.x,mouse.y); return; }
   if(state==='play'){
     if(!locked){ lockPointer(); return; }
     if(e.button===0)playCard(P.sel);
@@ -1319,6 +1373,76 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>{ keys[e.code]=false; });
 window.addEventListener('blur',()=>{ if(state==='play')state='pause'; });
+document.addEventListener('visibilitychange',()=>{ if(document.hidden&&state==='play')state='pause'; });
+
+function rewardHit(x,y){
+  const lay=rewardLayout();
+  for(let i=0;i<4;i++){
+    const L=lay[i];
+    if(Math.abs(x-L.x)<L.w/2+6&&Math.abs(y-L.y)<L.h/2+6){ chooseReward(L.skip?-1:i); return true; }
+  }
+  return false;
+}
+function cardAt(x,y){
+  const lay=handLayout();
+  for(let i=lay.length-1;i>=0;i--){
+    const L=lay[i];
+    if(Math.abs(x-L.x)<L.w/2+8&&Math.abs(y-L.y)<L.h/2+12)return i;
+  }
+  return -1;
+}
+
+/* ---------------- entrées tactiles ---------------- */
+function touchXY(t){
+  const r=ucv.getBoundingClientRect();
+  return [(t.clientX-r.left)/r.width*UW,(t.clientY-r.top)/r.height*UH];
+}
+ucv.addEventListener('touchstart',e=>{
+  e.preventDefault(); audio();
+  for(const t of e.changedTouches){
+    const [x,y]=touchXY(t);
+    if(state==='menu'||state==='dead'){ startRun(); return; }
+    if(state==='pause'){ state='play'; return; }
+    if(state==='reward'){ mouse.x=x; mouse.y=y; rewardHit(x,y); return; }
+    if(state!=='play')continue;
+    if(x>=PAUSE_BTN.x-8&&x<=PAUSE_BTN.x+PAUSE_BTN.w+8&&y<=PAUSE_BTN.y+PAUSE_BTN.h+8){ state='pause'; return; }
+    const ci=cardAt(x,y);
+    if(ci>=0&&!cardTouch){ cardTouch={id:t.identifier,x0:x,y0:y,dx:0,dy:0,idx:ci,t0:time}; P.sel=ci; continue; }
+    if(x<UW*0.45&&!joyTouch){ joyTouch={id:t.identifier,x0:x,y0:y,x,y}; continue; }
+    if(!lookTouch)lookTouch={id:t.identifier,lx:x,ly:y};
+  }
+},{passive:false});
+ucv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    const [x,y]=touchXY(t);
+    if(joyTouch&&t.identifier===joyTouch.id){
+      joyTouch.x=x; joyTouch.y=y;
+      const R=58;
+      joyVec.f=clamp(-(y-joyTouch.y0)/R,-1,1);
+      joyVec.s=clamp((x-joyTouch.x0)/R,-1,1);
+    } else if(lookTouch&&t.identifier===lookTouch.id){
+      if(P)P.a=(P.a+(x-lookTouch.lx)*0.005)%TAU;
+      lookTouch.lx=x; lookTouch.ly=y;
+    } else if(cardTouch&&t.identifier===cardTouch.id){
+      cardTouch.dx=x-cardTouch.x0; cardTouch.dy=y-cardTouch.y0;
+    }
+  }
+},{passive:false});
+function touchEnd(e){
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(joyTouch&&t.identifier===joyTouch.id){ joyTouch=null; joyVec.f=0; joyVec.s=0; }
+    else if(lookTouch&&t.identifier===lookTouch.id)lookTouch=null;
+    else if(cardTouch&&t.identifier===cardTouch.id){
+      const c=cardTouch; cardTouch=null;
+      if(c.dy>45)discardCard(c.idx);
+      else if(Math.hypot(c.dx,c.dy)<25&&time-c.t0<0.6)playCard(c.idx);
+    }
+  }
+}
+ucv.addEventListener('touchend',touchEnd,{passive:false});
+ucv.addEventListener('touchcancel',touchEnd,{passive:false});
 
 /* ---------------- déroulement ---------------- */
 function startRun(){
@@ -1341,6 +1465,14 @@ function frame(now){
   update(dt);
   render3D();
   renderUI();
+  if(IS_TOUCH&&window.innerHeight>window.innerWidth){
+    ux.fillStyle='rgba(8,8,14,0.85)'; ux.fillRect(0,0,UW,UH);
+    ux.fillStyle='#ffe860'; ux.font='bold 18px monospace'; ux.textAlign='center';
+    ux.fillText('Tournez votre téléphone',UW/2,UH/2-10);
+    ux.font='12px monospace'; ux.fillStyle='#fff';
+    ux.fillText('(mode paysage requis)',UW/2,UH/2+14);
+    ux.textAlign='left';
+  }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

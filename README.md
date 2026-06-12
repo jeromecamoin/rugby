@@ -30,6 +30,8 @@ python3 -m http.server 8000
 
 ## Commandes
 
+### Ordinateur
+
 | Action | Touche |
 |---|---|
 | Se déplacer | ZQSD / WASD / flèches |
@@ -38,6 +40,20 @@ python3 -m http.server 8000
 | Sélectionner une carte | Molette |
 | Défausser (re-pioche auto) | Clic droit ou F |
 | Pause | Échap |
+
+### Mobile / tablette (iPhone, Android…)
+
+Le jeu détecte le tactile automatiquement. En mode **paysage** :
+
+| Action | Geste |
+|---|---|
+| Se déplacer | Joystick virtuel (moitié gauche de l'écran) |
+| Regarder | Glisser sur la moitié droite |
+| Jouer une carte | Toucher la carte |
+| Défausser | Glisser la carte vers le bas |
+| Pause | Bouton ⏸ en haut à droite |
+
+Les projectiles bénéficient d'une légère visée assistée sur tactile.
 
 ## Cartes
 
