@@ -25,8 +25,21 @@ python3 -m http.server 8000
   défenses, bonus, mouvements. Chaque carte coûte de l'énergie (qui se recharge
   avec le temps). La main se re-pioche automatiquement depuis le deck ; la
   défausse est remélangée quand le deck est vide.
-- Après chaque vague, choisissez une nouvelle carte à ajouter à votre deck
-  (rogue-lite). La mort termine la partie : on recommence à la vague 1.
+- Après chaque vague, vous arrivez au **camp** : choisissez une carte de butin
+  gratuite, puis dépensez l'**or** récolté sur les monstres chez le marchand.
+  La mort termine la partie : on recommence à la vague 1.
+
+## Le camp & le marchand (rogue-lite)
+
+Les monstres lâchent de l'or (le troll-boss en lâche beaucoup). Entre les vagues,
+au camp, vous pouvez :
+
+- **Améliorer une carte** : sa version « + » frappe plus fort / dure plus longtemps.
+- **Retirer une carte** : amincir le deck pour piocher l'essentiel plus souvent.
+- **Soin complet** : remonter à pleins PV.
+- **Acheter une carte rare** : ajouter une carte puissante au hasard.
+
+Les coûts augmentent à chaque achat du même type : un deck affûté se mérite.
 
 ## Commandes
 

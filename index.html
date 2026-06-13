@@ -59,6 +59,7 @@ const ri=(a,b)=>Math.floor(rnd(a,b+1));
 const dist2=(ax,ay,bx,by)=>{const dx=ax-bx,dy=ay-by;return dx*dx+dy*dy;};
 function angDiff(a,b){let d=(a-b)%TAU; if(d>Math.PI)d-=TAU; if(d<-Math.PI)d+=TAU; return d;}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+const inRect=(x,y,R)=>Math.abs(x-R.x)<R.w/2&&Math.abs(y-R.y)<R.h/2;
 
 /* ---------------- audio (synthèse WebAudio) ---------------- */
 let AC=null;
@@ -99,6 +100,9 @@ const SFX={
   pick(){tone(600,1200,0.1,'triangle',0.07);},
   shoot(){tone(800,300,0.08,'triangle',0.05);},
   shufle(){noise(0.3,0.06,1500);},
+  coin(){tone(950,1500,0.07,'triangle',0.06); tone(1300,1900,0.06,'triangle',0.04,0.05);},
+  buyOk(){tone(500,1000,0.10,'square',0.06); tone(750,1400,0.12,'square',0.05,0.07);},
+  upgradeS(){tone(380,820,0.13,'triangle',0.07); tone(560,1180,0.15,'triangle',0.06,0.08); tone(760,1500,0.16,'triangle',0.05,0.17);},
 };
 
 /* ---------------- fabrique de sprites pixel art ---------------- */
@@ -420,37 +424,59 @@ const swordImg=(function(){
 const TYPECOL={atk:'#b8413a',def:'#3a6ab8',bon:'#3f9a4a',mov:'#2a9a96'};
 const TYPENAME={atk:'ATTAQUE',def:'DÉFENSE',bon:'BONUS',mov:'MOUVEMENT'};
 const CARDS={
-  taillade:{name:'Taillade',type:'atk',cost:1,icon:'sword',desc:'12 dégâts en mêlée',
-    act:()=>{meleeAttack(12,1.9,0.8,1.2); return true;}},
-  coup:{name:'Coup Puissant',type:'atk',cost:2,icon:'maul',desc:'26 dégâts + recul',
-    act:()=>{meleeAttack(26,2.0,0.7,5); return true;}},
-  couteau:{name:'Couteau',type:'atk',cost:0,icon:'knife',desc:'7 dégâts à distance',
-    act:()=>{spawnProj('knife',14,7,0.25,true); castFx(); SFX.shoot(); return true;}},
-  feu:{name:'Boule de Feu',type:'atk',cost:2,icon:'fire',desc:'22 dégâts de zone',
-    act:()=>{spawnProj('fireball',9,22,0.35,true,true); castFx(); SFX.fire(); return true;}},
-  eclair:{name:'Éclair',type:'atk',cost:3,icon:'bolt',desc:'Foudroie la cible : 35 dégâts',
-    act:()=>smite(35)},
-  tourbillon:{name:'Tourbillon',type:'atk',cost:2,icon:'whirl',desc:'16 dégâts tout autour',
-    act:()=>{meleeAttack(16,2.3,Math.PI,3); P.spinT=0.3; return true;}},
-  bouclier:{name:'Bouclier',type:'def',cost:1,icon:'shield',desc:'Bloque 15 dégâts (6 s)',
-    act:()=>{P.block=Math.max(P.block,0)+15; P.blockT=6; SFX.block(); return true;}},
-  muraille:{name:'Muraille',type:'def',cost:2,icon:'wall',desc:'Bloque 35 dégâts (8 s)',
-    act:()=>{P.block=Math.max(P.block,0)+35; P.blockT=8; SFX.block(); return true;}},
-  parade:{name:'Parade',type:'def',cost:1,icon:'parry',desc:'Renvoie les attaques de mêlée (2,5 s)',
-    act:()=>{P.parryT=2.5; SFX.clang(); return true;}},
-  soin:{name:'Potion',type:'bon',cost:1,icon:'potion',desc:'Rend 22 PV',
-    act:()=>{heal(22); return true;}},
-  rage:{name:'Rage',type:'bon',cost:2,icon:'rage',desc:'+60 % de dégâts (8 s)',
-    act:()=>{P.rageT=8; SFX.buff(); return true;}},
-  pioche:{name:'Inspiration',type:'bon',cost:0,icon:'draw',desc:'Pioche 2 cartes',
-    act:()=>{drawCard(); drawCard(); return true;}},
-  ruee:{name:'Ruée',type:'mov',cost:1,icon:'dash',desc:'Charge en avant : 8 dégâts, esquive les coups',
-    act:()=>{startDash(15,0.20,1); SFX.dash(); return true;}},
-  esquive:{name:'Pas Arrière',type:'mov',cost:0,icon:'back',desc:'Bond en arrière, esquive les coups',
-    act:()=>{startDash(-12,0.16,-1); SFX.dash(); return true;}},
-  hate:{name:'Hâte',type:'mov',cost:1,icon:'haste',desc:'+60 % de vitesse (6 s)',
-    act:()=>{P.hasteT=6; SFX.buff(); return true;}},
+  taillade:{name:'Taillade',type:'atk',cost:1,icon:'sword',fx:'melee',dmg:12,range:1.9,ang:0.8,kb:1.2,
+    desc:'12 dégâts en mêlée',up:{dmg:18,desc:'18 dégâts en mêlée'}},
+  coup:{name:'Coup Puissant',type:'atk',cost:2,icon:'maul',fx:'melee',dmg:26,range:2.0,ang:0.7,kb:5,
+    desc:'26 dégâts + recul',up:{dmg:38,desc:'38 dégâts + fort recul'}},
+  couteau:{name:'Couteau',type:'atk',cost:0,icon:'knife',fx:'proj',proj:'knife',speed:14,dmg:7,pr:0.25,
+    desc:'7 dégâts à distance',up:{dmg:11,desc:'11 dégâts à distance'}},
+  feu:{name:'Boule de Feu',type:'atk',cost:2,icon:'fire',fx:'proj',proj:'fireball',speed:9,dmg:22,pr:0.35,aoe:true,
+    desc:'22 dégâts de zone',up:{dmg:32,desc:'32 dégâts de zone'}},
+  eclair:{name:'Éclair',type:'atk',cost:3,icon:'bolt',fx:'smite',dmg:35,
+    desc:'Foudroie la cible : 35 dégâts',up:{dmg:52,desc:'Foudroie la cible : 52 dégâts'}},
+  tourbillon:{name:'Tourbillon',type:'atk',cost:2,icon:'whirl',fx:'melee',dmg:16,range:2.3,ang:Math.PI,kb:3,spin:true,
+    desc:'16 dégâts tout autour',up:{dmg:24,desc:'24 dégâts tout autour'}},
+  bouclier:{name:'Bouclier',type:'def',cost:1,icon:'shield',fx:'block',block:15,dur:6,
+    desc:'Bloque 15 dégâts (6 s)',up:{block:25,desc:'Bloque 25 dégâts (6 s)'}},
+  muraille:{name:'Muraille',type:'def',cost:2,icon:'wall',fx:'block',block:35,dur:8,
+    desc:'Bloque 35 dégâts (8 s)',up:{block:55,desc:'Bloque 55 dégâts (8 s)'}},
+  parade:{name:'Parade',type:'def',cost:1,icon:'parry',fx:'parry',dur:2.5,
+    desc:'Renvoie les attaques de mêlée (2,5 s)',up:{dur:4,desc:'Renvoie la mêlée (4 s)'}},
+  soin:{name:'Potion',type:'bon',cost:1,icon:'potion',fx:'heal',heal:22,
+    desc:'Rend 22 PV',up:{heal:34,desc:'Rend 34 PV'}},
+  rage:{name:'Rage',type:'bon',cost:2,icon:'rage',fx:'rage',dur:8,
+    desc:'+60 % de dégâts (8 s)',up:{dur:12,desc:'+60 % de dégâts (12 s)'}},
+  pioche:{name:'Inspiration',type:'bon',cost:0,icon:'draw',fx:'draw',n:2,
+    desc:'Pioche 2 cartes',up:{n:3,desc:'Pioche 3 cartes'}},
+  ruee:{name:'Ruée',type:'mov',cost:1,icon:'dash',fx:'dash',speed:15,dur:0.20,dmg:8,
+    desc:'Charge en avant : 8 dégâts, esquive les coups',up:{dmg:14,desc:'Charge : 14 dégâts, esquive'}},
+  esquive:{name:'Pas Arrière',type:'mov',cost:0,icon:'back',fx:'dash',speed:-12,dur:0.16,dmg:0,
+    desc:'Bond en arrière, esquive les coups',up:{dur:0.24,desc:'Bond arrière, longue esquive'}},
+  hate:{name:'Hâte',type:'mov',cost:1,icon:'haste',fx:'haste',dur:6,
+    desc:'+60 % de vitesse (6 s)',up:{dur:9,desc:'+60 % de vitesse (9 s)'}},
 };
+// génère les variantes améliorées « + » à partir du champ `up`
+for(const id of Object.keys(CARDS)){
+  const b=CARDS[id]; if(!b.up)continue;
+  const upId=id+'+';
+  const u=Object.assign({},b,b.up,{name:b.name+'+',upgraded:true});
+  delete u.up;
+  CARDS[upId]=u; b.upId=upId;
+}
+// dispatcher d'effets : chaque carte est de la donnée, l'effet lit ses stats
+const CARD_FX={
+  melee:c=>{meleeAttack(c.dmg,c.range,c.ang,c.kb); if(c.spin)P.spinT=0.3; return true;},
+  proj:c=>{spawnProj(c.proj,c.speed,c.dmg,c.pr,true,c.aoe); castFx(); (c.proj==='fireball'?SFX.fire:SFX.shoot)(); return true;},
+  smite:c=>smite(c.dmg),
+  block:c=>{P.block=Math.max(P.block,0)+c.block; P.blockT=c.dur; SFX.block(); return true;},
+  parry:c=>{P.parryT=c.dur; SFX.clang(); return true;},
+  heal:c=>{heal(c.heal); return true;},
+  rage:c=>{P.rageT=c.dur; SFX.buff(); return true;},
+  draw:c=>{for(let i=0;i<c.n;i++)drawCard(); return true;},
+  dash:c=>{startDash(c.speed,c.dur,c.dmg); SFX.dash(); return true;},
+  haste:c=>{P.hasteT=c.dur; SFX.buff(); return true;},
+};
+const RARE_POOL=['eclair','muraille','rage','feu','coup','tourbillon','parade','hate'];
 const REWARD_POOL=[
   ...['taillade','couteau','bouclier','soin','esquive','pioche'].flatMap(c=>[c,c,c]),
   ...['coup','tourbillon','parade','ruee','hate','feu'].flatMap(c=>[c,c]),
@@ -460,10 +486,10 @@ const START_DECK=['taillade','taillade','taillade','couteau','bouclier','bouclie
 
 /* ---------------- types d'ennemis ---------------- */
 const ETYPES={
-  gob:{name:'Gobelin',hp:26,spd:2.4,dmg:9,range:1.3,windup:0.55,recover:0.8,scale:0.78,sprite:'gob'},
-  ske:{name:'Squelette archer',hp:22,spd:1.8,dmg:10,ranged:true,minD:4,maxD:9,cd:2.6,windup:0.55,recover:0.5,scale:0.92,sprite:'ske'},
-  orc:{name:'Orc',hp:68,spd:1.35,dmg:18,range:1.55,windup:0.95,recover:1.0,scale:1.02,sprite:'orc'},
-  troll:{name:'TROLL DES LANDES',hp:260,spd:1.15,dmg:26,range:2.0,windup:1.15,recover:1.1,scale:1.55,boss:true,throwCd:6,sprite:'troll'},
+  gob:{name:'Gobelin',hp:26,spd:2.4,dmg:9,range:1.3,windup:0.55,recover:0.8,scale:0.78,sprite:'gob',gold:[4,7]},
+  ske:{name:'Squelette archer',hp:22,spd:1.8,dmg:10,ranged:true,minD:4,maxD:9,cd:2.6,windup:0.55,recover:0.5,scale:0.92,sprite:'ske',gold:[5,9]},
+  orc:{name:'Orc',hp:68,spd:1.35,dmg:18,range:1.55,windup:0.95,recover:1.0,scale:1.02,sprite:'orc',gold:[12,18]},
+  troll:{name:'TROLL DES LANDES',hp:260,spd:1.15,dmg:26,range:2.0,windup:1.15,recover:1.1,scale:1.55,boss:true,throwCd:6,sprite:'troll',gold:[60,90]},
 };
 
 /* ---------------- état du jeu ---------------- */
@@ -471,7 +497,7 @@ let state='menu';        // menu | play | reward | dead | pause
 let map=null;
 let P=null;              // joueur
 let enemies=[], projs=[], parts=[], floaters=[], pickups=[], decor=[], effects=[];
-let spawnQueue=[], waveDelay=0, rewardChoices=null, rewardDelay=0;
+let spawnQueue=[], waveDelay=0, rewardChoices=null, rewardDelay=0, campMode=null, campTook=false;
 let msgQueue=[];         // bandeaux de message
 let mouse={x:0,y:0,down:false};
 let locked=false, time=0, shake=0, hitMark=0, dmgFlash=0, healFlash=0, blockFlash=0;
@@ -488,6 +514,7 @@ function newPlayer(){
     x:MAPS/2+0.5, y:MAPS/2+0.5, a:rnd(0,TAU),
     hp:100, maxhp:100,
     energy:3, maxEnergy:3,
+    gold:0, removeCount:0, upgradeCount:0, buyCount:0,
     deck:shuffle(START_DECK.slice()), discard:[], hand:[],
     drawT:0.2, sel:0,
     block:0, blockT:0, parryT:0, rageT:0, hasteT:0, spinT:0,
@@ -566,7 +593,7 @@ function playCard(i){
   const id=P.hand[i]; if(!id)return;
   const c=CARDS[id];
   if(P.energy<c.cost){ message('Pas assez d’énergie !'); SFX.err(); return; }
-  if(c.act()===false){ message('Aucune cible en vue !'); SFX.err(); return; }
+  if(CARD_FX[c.fx](c)===false){ message('Aucune cible en vue !'); SFX.err(); return; }
   P.energy-=c.cost;
   P.hand.splice(i,1); P.discard.push(id);
   P.sel=clamp(P.sel,0,Math.max(0,P.hand.length-1));
@@ -630,10 +657,10 @@ function smite(dmg){
   hitMark=0.15;
   return true;
 }
-function startDash(speed,dur,dmgSign){
+function startDash(speed,dur,dmg){
   P.dashT=dur;
   P.dashVx=Math.cos(P.a)*speed; P.dashVy=Math.sin(P.a)*speed;
-  P.dashDmg=dmgSign>0?8:0; P.dashHit=new Set();
+  P.dashDmg=dmg||0; P.dashHit=new Set();
 }
 
 /* ---------------- dégâts ---------------- */
@@ -649,8 +676,15 @@ function killEnemy(e){
   e.dead=true; P.kills++;
   SFX.kill();
   for(let i=0;i<16;i++)parts.push({x:e.x,y:e.y,z:rnd(0.1,1),vx:rnd(-3,3),vy:rnd(-3,3),vz:rnd(0.5,3),t:rnd(0.3,0.6),color:Math.random()<0.5?'#a02828':'#601818',size:0.06});
+  grantGold(e);
   if(Math.random()<0.22)pickups.push({x:e.x,y:e.y,kind:'heart',t:15});
   if(e.type.boss)message('TROLL VAINCU !');
+}
+function grantGold(e){
+  const g=e.type.gold, amt=g?ri(g[0],g[1]):ri(3,6);
+  P.gold+=amt; SFX.coin();
+  floaters.push({x:e.x,y:e.y,z:e.type.scale+0.4,t:1,text:'+'+amt+' or',color:'#ffd24a'});
+  for(let i=0;i<5;i++)parts.push({x:e.x,y:e.y,z:rnd(0.3,0.9),vx:rnd(-1.5,1.5),vy:rnd(-1.5,1.5),vz:rnd(1,2.5),t:rnd(0.3,0.6),color:'#ffd24a',size:0.05});
 }
 function damagePlayer(dmg,src,isMelee){
   if(P.dashT>0){ floaters.push({x:P.x,y:P.y,z:0.9,t:0.7,text:'esquivé !',color:'#60d8d0',self:true}); return; }
@@ -706,19 +740,56 @@ function spawnEnemy(tname){
   enemies.push(e);
   for(let i=0;i<12;i++)parts.push({x:x+rnd(-0.3,0.3),y:y+rnd(-0.3,0.3),z:rnd(0,1),vx:0,vy:0,vz:rnd(0.5,1.5),t:rnd(0.3,0.6),color:'#8a78c0',size:0.06});
 }
-function openReward(){
-  state='reward';
+/* ---------------- camp / marchand (entre les vagues) ---------------- */
+const HEAL_COST=30;
+function removeCost(){ return 20+15*P.removeCount; }
+function upgradeCost(){ return 25+10*P.upgradeCount; }
+function buyCost(){ return 40+10*P.buyCount; }
+function openCamp(){
+  state='camp'; campMode=null; campTook=false;
   document.exitPointerLock&&document.exitPointerLock();
   const pool=shuffle(REWARD_POOL.slice());
   const seen=new Set(); rewardChoices=[];
   for(const id of pool){ if(!seen.has(id)){seen.add(id);rewardChoices.push(id);} if(rewardChoices.length===3)break; }
 }
-function chooseReward(i){
-  if(i>=0&&i<3){ P.discard.push(rewardChoices[i]); message(CARDS[rewardChoices[i]].name+' ajoutée au deck !'); SFX.pick(); }
-  else { heal(15); }
-  rewardChoices=null;
+function leaveCamp(){
+  rewardChoices=null; campMode=null;
   startWave(P.wave+1);
   state='play'; lockPointer();
+}
+function takeReward(i){
+  if(campTook||i<0||i>=3)return;
+  P.discard.push(rewardChoices[i]); campTook=true;
+  message(CARDS[rewardChoices[i]].name+' ajoutée !'); SFX.pick();
+}
+function buyHeal(){
+  if(P.hp>=P.maxhp){ SFX.err(); message('PV déjà au max'); return; }
+  if(P.gold<HEAL_COST){ SFX.err(); message('Pas assez d’or'); return; }
+  P.gold-=HEAL_COST; heal(P.maxhp-P.hp); SFX.buyOk();
+}
+function buyRare(){
+  if(P.gold<buyCost()){ SFX.err(); message('Pas assez d’or'); return; }
+  P.gold-=buyCost(); P.buyCount++;
+  const id=RARE_POOL[ri(0,RARE_POOL.length-1)];
+  P.discard.push(id); message(CARDS[id].name+' achetée !'); SFX.buyOk();
+}
+function allDeckCards(){
+  const out=[]; const push=arr=>arr.forEach((id,i)=>out.push({id,arr,i}));
+  push(P.hand); push(P.deck); push(P.discard); return out;
+}
+function applyDeckPick(entry){
+  if(campMode==='upgrade'){
+    const up=CARDS[entry.id].upId;
+    if(!up){ SFX.err(); return; }
+    if(P.gold<upgradeCost()){ SFX.err(); message('Pas assez d’or'); return; }
+    P.gold-=upgradeCost(); P.upgradeCount++;
+    entry.arr[entry.i]=up; SFX.upgradeS(); message(CARDS[up].name+' !');
+  } else if(campMode==='remove'){
+    if(P.gold<removeCost()){ SFX.err(); message('Pas assez d’or'); return; }
+    P.gold-=removeCost(); P.removeCount++;
+    entry.arr.splice(entry.i,1); SFX.coin(); message('Carte retirée du deck');
+  }
+  campMode=null; state='camp';
 }
 
 /* ---------------- messages ---------------- */
@@ -857,7 +928,7 @@ function update(dt){
   // --- fin de vague ---
   if(!enemies.length&&!spawnQueue.length){
     rewardDelay+=dt;
-    if(rewardDelay>1.4){ rewardDelay=0; openReward(); }
+    if(rewardDelay>1.4){ rewardDelay=0; openCamp(); }
   } else rewardDelay=0;
 }
 function explode(p){
@@ -1027,8 +1098,13 @@ function drawCardFace(g,cx,cy,w,h,id,opts){
   const isz=w*0.55;
   g.imageSmoothingEnabled=false;
   g.drawImage(ICONS[c.icon],x+w/2-isz/2,y+18,isz,isz);
+  // marqueur de carte améliorée
+  if(c.upgraded){
+    g.fillStyle='#3f9a4a'; g.beginPath(); g.arc(x+w-10,y+10,7,0,TAU); g.fill();
+    g.fillStyle='#fff'; g.font='bold 11px monospace'; g.textAlign='center'; g.fillText('+',x+w-10,y+14);
+  }
   // type
-  g.fillStyle=col; g.font='bold 8px monospace';
+  g.fillStyle=col; g.font='bold 8px monospace'; g.textAlign='center';
   g.fillText(TYPENAME[c.type],x+w/2,y+h-34);
   // description
   g.fillStyle='#3a3226'; g.font='8px monospace';
@@ -1138,11 +1214,14 @@ function renderUI(){
   ux.font='8px monospace'; ux.fillText('DÉFAUSSE',UW-56,UH-16);
   ux.textAlign='left';
 
-  // vague + score (haut-gauche)
-  ux.fillStyle='rgba(10,10,16,0.65)'; ux.fillRect(10,10,180,44);
+  // vague + score + or (haut-gauche)
+  ux.fillStyle='rgba(10,10,16,0.65)'; ux.fillRect(10,10,180,62);
   ux.fillStyle='#ffe860'; ux.font='bold 14px monospace'; ux.fillText('VAGUE '+P.wave,18,28);
   ux.fillStyle='#fff'; ux.font='10px monospace';
   ux.fillText('Monstres : '+(enemies.length+spawnQueue.length)+'   Tués : '+P.kills,18,45);
+  ux.fillStyle='#caa84a'; ux.beginPath(); ux.arc(22,60,5,0,TAU); ux.fill();
+  ux.fillStyle='#ffe860'; ux.beginPath(); ux.arc(22,60,3.5,0,TAU); ux.fill();
+  ux.fillStyle='#ffd24a'; ux.font='bold 11px monospace'; ux.fillText(P.gold+' or',32,64);
 
   // barre de boss
   const boss=enemies.find(e=>e.type.boss);
@@ -1237,7 +1316,8 @@ function renderUI(){
     ux.fillRect(PAUSE_BTN.x+14,PAUSE_BTN.y+8,5,18); ux.fillRect(PAUSE_BTN.x+25,PAUSE_BTN.y+8,5,18);
   }
 
-  if(state==='reward')uiReward();
+  if(state==='camp')uiCamp();
+  if(state==='pickdeck')uiPickDeck();
   if(state==='dead')uiDead();
   if(state==='pause')uiPause();
   ux.restore();
@@ -1247,28 +1327,94 @@ function uiPanel(w,h){
   ux.fillStyle='#1c1812'; ux.fillRect(UW/2-w/2,UH/2-h/2,w,h);
   ux.strokeStyle='#caa84a'; ux.lineWidth=3; ux.strokeRect(UW/2-w/2,UH/2-h/2,w,h);
 }
-function rewardLayout(){
-  const out=[]; for(let i=0;i<3;i++)out.push({x:UW/2+(i-1)*120,y:UH/2-10,w:104,h:148});
-  out.push({x:UW/2,y:UH/2+110,w:220,h:28,skip:true});
-  return out;
+function campLayout(){
+  const cards=[]; for(let i=0;i<3;i++)cards.push({x:UW/2+(i-1)*116,y:178,w:94,h:130});
+  const bw=326,bh=42;
+  return {
+    cards,
+    up:{x:UW/2-170,y:300,w:bw,h:bh},
+    rem:{x:UW/2+170,y:300,w:bw,h:bh},
+    heal:{x:UW/2-170,y:348,w:bw,h:bh},
+    buy:{x:UW/2+170,y:348,w:bw,h:bh},
+    go:{x:UW/2,y:432,w:330,h:40},
+  };
 }
-function uiReward(){
-  uiPanel(440,300);
-  ux.fillStyle='#ffe860'; ux.font='bold 18px monospace'; ux.textAlign='center';
-  ux.fillText('VAGUE '+P.wave+' TERMINÉE !',UW/2,UH/2-115);
+function shopBtn(R,label,cost,disabled){
+  const afford=P.gold>=cost&&!disabled, hot=inRect(mouse.x,mouse.y,R);
+  ux.fillStyle=disabled?'#241f1a':(hot&&afford?'#574522':'#352e24');
+  ux.fillRect(R.x-R.w/2,R.y-R.h/2,R.w,R.h);
+  ux.strokeStyle=afford?'#caa84a':'#5a5040'; ux.lineWidth=1.5; ux.strokeRect(R.x-R.w/2,R.y-R.h/2,R.w,R.h);
+  ux.textAlign='left'; ux.fillStyle=disabled?'#777':'#fff'; ux.font='bold 12px monospace';
+  ux.fillText(label,R.x-R.w/2+12,R.y+4);
+  ux.textAlign='right'; ux.fillStyle=disabled?'#777':(afford?'#ffd24a':'#d06868');
+  ux.fillText(disabled?'—':(cost+' or'),R.x+R.w/2-12,R.y+4);
+  ux.textAlign='center';
+}
+function uiCamp(){
+  uiPanel(764,452);
+  ux.textAlign='center';
+  ux.fillStyle='#ffe860'; ux.font='bold 19px monospace';
+  ux.fillText('VAGUE '+P.wave+' TERMINÉE — CAMP',UW/2,48);
+  ux.fillStyle='#caa84a'; ux.beginPath(); ux.arc(UW/2-44,84,7,0,TAU); ux.fill();
+  ux.fillStyle='#ffe860'; ux.beginPath(); ux.arc(UW/2-44,84,5,0,TAU); ux.fill();
+  ux.fillStyle='#ffd24a'; ux.font='bold 15px monospace'; ux.textAlign='left';
+  ux.fillText(P.gold+' or',UW/2-32,89); ux.textAlign='center';
+  const L=campLayout();
+  // butin gratuit
   ux.fillStyle='#fff'; ux.font='11px monospace';
-  ux.fillText('Choisissez une carte à ajouter à votre deck :',UW/2,UH/2-95);
-  const lay=rewardLayout();
+  ux.fillText(campTook?'✓ Butin récupéré':'Butin gratuit — choisis une carte',UW/2,128);
   for(let i=0;i<3;i++){
-    const L=lay[i];
-    const hot=Math.abs(mouse.x-L.x)<L.w/2&&Math.abs(mouse.y-L.y)<L.h/2;
-    drawCardFace(ux,L.x,L.y,L.w,L.h,rewardChoices[i],{hot});
+    const C=L.cards[i];
+    if(campTook){
+      ux.fillStyle='rgba(40,36,30,0.5)'; ux.fillRect(C.x-C.w/2,C.y-C.h/2,C.w,C.h);
+      ux.strokeStyle='#4a4438'; ux.lineWidth=2; ux.strokeRect(C.x-C.w/2,C.y-C.h/2,C.w,C.h);
+    } else {
+      drawCardFace(ux,C.x,C.y,C.w,C.h,rewardChoices[i],{hot:inRect(mouse.x,mouse.y,C)});
+    }
   }
-  const S=lay[3];
-  const hotS=Math.abs(mouse.x-S.x)<S.w/2&&Math.abs(mouse.y-S.y)<S.h/2;
-  ux.fillStyle=hotS?'#caa84a':'#3a332a'; ux.fillRect(S.x-S.w/2,S.y-S.h/2,S.w,S.h);
-  ux.fillStyle='#fff'; ux.font='bold 11px monospace';
-  ux.fillText('Passer (+15 PV)',S.x,S.y+4);
+  // marchand
+  shopBtn(L.up,'Améliorer une carte',upgradeCost());
+  shopBtn(L.rem,'Retirer une carte',removeCost());
+  shopBtn(L.heal,'Soin complet',HEAL_COST,P.hp>=P.maxhp);
+  shopBtn(L.buy,'Acheter carte rare',buyCost());
+  // partir
+  const goHot=inRect(mouse.x,mouse.y,L.go);
+  ux.fillStyle=goHot?'#4a7a3a':'#3a5a32'; ux.fillRect(L.go.x-L.go.w/2,L.go.y-L.go.h/2,L.go.w,L.go.h);
+  ux.strokeStyle='#ffe860'; ux.lineWidth=2; ux.strokeRect(L.go.x-L.go.w/2,L.go.y-L.go.h/2,L.go.w,L.go.h);
+  ux.fillStyle='#fff'; ux.font='bold 14px monospace'; ux.fillText('PARTIR AU COMBAT  →',L.go.x,L.go.y+5);
+  ux.textAlign='left';
+}
+function pickdeckLayout(){
+  const cards=allDeckCards();
+  const perRow=11, gx=66, gy=104;
+  const rects=[];
+  cards.forEach((e,k)=>{
+    const r=Math.floor(k/perRow), col=k%perRow;
+    const rowCount=Math.min(perRow,cards.length-r*perRow);
+    const x0=UW/2-((rowCount-1)*gx)/2;
+    rects.push({x:x0+col*gx,y:148+r*gy,w:58,h:82,entry:e});
+  });
+  return {rects,back:{x:UW/2,y:444,w:200,h:34}};
+}
+function uiPickDeck(){
+  uiPanel(800,456);
+  ux.textAlign='center';
+  const cost=campMode==='upgrade'?upgradeCost():removeCost();
+  ux.fillStyle='#ffe860'; ux.font='bold 18px monospace';
+  ux.fillText(campMode==='upgrade'?'AMÉLIORER UNE CARTE':'RETIRER UNE CARTE',UW/2,42);
+  ux.fillStyle='#ffd24a'; ux.font='bold 12px monospace';
+  ux.fillText('Coût : '+cost+' or   ·   tu as '+P.gold+' or',UW/2,64);
+  ux.fillStyle='#bbb'; ux.font='10px monospace';
+  ux.fillText(campMode==='upgrade'?'Les cartes non améliorables (déjà « + ») sont grisées':'Touche la carte à retirer définitivement',UW/2,82);
+  const L=pickdeckLayout();
+  for(const R of L.rects){
+    const canDo=campMode==='upgrade'?!!CARDS[R.entry.id].upId:true;
+    drawCardFace(ux,R.x,R.y,R.w,R.h,R.entry.id,{hot:canDo&&inRect(mouse.x,mouse.y,R),dim:!canDo});
+  }
+  const bHot=inRect(mouse.x,mouse.y,L.back);
+  ux.fillStyle=bHot?'#caa84a':'#3a332a'; ux.fillRect(L.back.x-L.back.w/2,L.back.y-L.back.h/2,L.back.w,L.back.h);
+  ux.strokeStyle='#caa84a'; ux.lineWidth=1.5; ux.strokeRect(L.back.x-L.back.w/2,L.back.y-L.back.h/2,L.back.w,L.back.h);
+  ux.fillStyle='#fff'; ux.font='bold 12px monospace'; ux.fillText('← Retour au camp',L.back.x,L.back.y+4);
   ux.textAlign='left';
 }
 function uiDead(){
@@ -1349,7 +1495,8 @@ ucv.addEventListener('mousedown',e=>{
   if(state==='menu'){ startRun(); return; }
   if(state==='pause'){ state='play'; lockPointer(); return; }
   if(state==='dead'){ startRun(); return; }
-  if(state==='reward'){ rewardHit(mouse.x,mouse.y); return; }
+  if(state==='camp'){ campClick(mouse.x,mouse.y); return; }
+  if(state==='pickdeck'){ pickdeckClick(mouse.x,mouse.y); return; }
   if(state==='play'){
     if(!locked){ lockPointer(); return; }
     if(e.button===0)playCard(P.sel);
@@ -1375,13 +1522,22 @@ window.addEventListener('keyup',e=>{ keys[e.code]=false; });
 window.addEventListener('blur',()=>{ if(state==='play')state='pause'; });
 document.addEventListener('visibilitychange',()=>{ if(document.hidden&&state==='play')state='pause'; });
 
-function rewardHit(x,y){
-  const lay=rewardLayout();
-  for(let i=0;i<4;i++){
-    const L=lay[i];
-    if(Math.abs(x-L.x)<L.w/2+6&&Math.abs(y-L.y)<L.h/2+6){ chooseReward(L.skip?-1:i); return true; }
+function campClick(x,y){
+  const L=campLayout();
+  if(!campTook)for(let i=0;i<3;i++)if(inRect(x,y,L.cards[i])){ takeReward(i); return; }
+  if(inRect(x,y,L.up)){ if(P.gold<upgradeCost()){SFX.err();message('Pas assez d’or');return;} campMode='upgrade'; state='pickdeck'; return; }
+  if(inRect(x,y,L.rem)){ if(P.gold<removeCost()){SFX.err();message('Pas assez d’or');return;} campMode='remove'; state='pickdeck'; return; }
+  if(inRect(x,y,L.heal)){ buyHeal(); return; }
+  if(inRect(x,y,L.buy)){ buyRare(); return; }
+  if(inRect(x,y,L.go)){ leaveCamp(); return; }
+}
+function pickdeckClick(x,y){
+  const L=pickdeckLayout();
+  if(inRect(x,y,L.back)){ state='camp'; campMode=null; return; }
+  for(const R of L.rects){
+    const canDo=campMode==='upgrade'?!!CARDS[R.entry.id].upId:true;
+    if(canDo&&inRect(x,y,R)){ applyDeckPick(R.entry); return; }
   }
-  return false;
 }
 function cardAt(x,y){
   const lay=handLayout();
@@ -1403,7 +1559,8 @@ ucv.addEventListener('touchstart',e=>{
     const [x,y]=touchXY(t);
     if(state==='menu'||state==='dead'){ startRun(); return; }
     if(state==='pause'){ state='play'; return; }
-    if(state==='reward'){ mouse.x=x; mouse.y=y; rewardHit(x,y); return; }
+    if(state==='camp'){ mouse.x=x; mouse.y=y; campClick(x,y); return; }
+    if(state==='pickdeck'){ mouse.x=x; mouse.y=y; pickdeckClick(x,y); return; }
     if(state!=='play')continue;
     if(x>=PAUSE_BTN.x-8&&x<=PAUSE_BTN.x+PAUSE_BTN.w+8&&y<=PAUSE_BTN.y+PAUSE_BTN.h+8){ state='pause'; return; }
     const ci=cardAt(x,y);
