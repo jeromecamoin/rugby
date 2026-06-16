@@ -23,140 +23,150 @@
     display:flex;flex-direction:column;height:100vh;overflow:hidden;
     -webkit-text-size-adjust:100%;
   }
-  /* ---------- Top bar ---------- */
   #topbar{
-    display:flex;align-items:center;gap:8px;padding:8px 12px;
+    display:flex;align-items:center;gap:6px;padding:7px 10px;
     background:rgba(0,0,0,.25);border-bottom:1px solid var(--line);flex:0 0 auto;
   }
-  #topbar .title{font-weight:800;letter-spacing:.5px;color:var(--gold);font-size:16px;white-space:nowrap;}
+  #topbar .title{font-weight:800;letter-spacing:.5px;color:var(--gold);font-size:15px;white-space:nowrap;}
   #topbar .spacer{flex:1;}
   .pill{
     background:var(--panel);border:1px solid var(--line);border-radius:999px;
-    padding:4px 10px;font-size:12px;font-weight:700;white-space:nowrap;
+    padding:4px 9px;font-size:12px;font-weight:700;white-space:nowrap;
   }
   .pill b{color:var(--gold);}
-  /* ---------- Layout ---------- */
+  .pill.gold{background:linear-gradient(160deg,#4a3a12,#322508);border-color:var(--gold2);}
+  .pill.gold b{font-size:14px;}
+
   #board{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-  .zone{padding:6px 10px;overflow:hidden;display:flex;flex-direction:column;}
+  .zone{padding:4px 8px;overflow:hidden;display:flex;flex-direction:column;}
   .zone h3{
-    font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);
-    margin-bottom:4px;display:flex;align-items:center;gap:8px;
+    font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);
+    margin-bottom:2px;display:flex;align-items:center;gap:6px;white-space:nowrap;
   }
   .zone h3 .who{color:var(--ink);}
   .zone h3 .sc{color:var(--gold);font-weight:800;}
+  .zone h3 .au{color:#f3c969;font-weight:800;}
+  .zone h3 .turnflag{color:var(--green);font-weight:800;}
   .row{
-    display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding:4px 2px 8px;
-    scroll-behavior:smooth;-webkit-overflow-scrolling:touch;min-height:0;
+    display:flex;gap:5px;overflow-x:auto;overflow-y:hidden;padding:3px 2px 6px;
+    -webkit-overflow-scrolling:touch;min-height:0;
   }
-  .row::-webkit-scrollbar{height:6px;}
+  .row::-webkit-scrollbar{height:5px;}
   .row::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
 
-  #kingdomAI{flex:0 0 auto;}
-  #river{flex:1 1 auto;}
-  #kingdomP{flex:0 0 auto;}
-  #handZone{flex:0 0 auto;background:rgba(0,0,0,.18);border-top:1px solid var(--line);}
+  #opponents{flex:0 0 auto;overflow-y:auto;max-height:38vh;}
+  #opponents .zone{padding:3px 8px;}
+  #riverZone{flex:1 1 auto;}
+  #pZone{flex:0 0 auto;}
 
-  /* ---------- Cards ---------- */
   .card{
-    flex:0 0 auto;width:96px;height:132px;border-radius:10px;position:relative;
+    flex:0 0 auto;width:92px;height:128px;border-radius:10px;position:relative;
     background:linear-gradient(165deg,var(--panel2),var(--panel));
     border:1px solid var(--line);box-shadow:0 3px 8px rgba(0,0,0,.35);
     display:flex;flex-direction:column;padding:6px;cursor:pointer;
     transition:transform .12s ease, box-shadow .12s, border-color .12s, opacity .12s;
     user-select:none;
   }
-  .card.sm{width:80px;height:112px;}
-  .card .nm{font-size:10.5px;font-weight:800;line-height:1.1;margin-bottom:2px;}
-  .card .ic{font-size:22px;text-align:center;margin:1px 0;}
-  .card .ef{font-size:9px;color:var(--muted);line-height:1.15;flex:1;overflow:hidden;}
+  .card.sm{width:64px;height:90px;padding:4px;}
+  .card.sm .ic{font-size:16px;}
+  .card.sm .nm{font-size:8.5px;}
+  .card.sm .ef{font-size:7px;}
+  .card .nm{font-size:10px;font-weight:800;line-height:1.05;margin-bottom:1px;}
+  .card .ic{font-size:21px;text-align:center;margin:1px 0;}
+  .card .ef{font-size:8.5px;color:var(--muted);line-height:1.12;flex:1;overflow:hidden;}
   .card .pp{
-    position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;
+    position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;
     background:radial-gradient(circle at 30% 30%,var(--gold),var(--gold2));
-    color:#3a2a05;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;
+    color:#3a2a05;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;
     box-shadow:0 2px 4px rgba(0,0,0,.4);border:1px solid #fff3;
   }
+  .card .cost{
+    position:absolute;top:-6px;left:-6px;min-width:22px;height:22px;border-radius:11px;
+    background:radial-gradient(circle at 30% 30%,#ffe39a,#b8860b);color:#3a2a05;
+    font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 4px rgba(0,0,0,.4);border:1px solid #fff3;padding:0 4px;
+  }
   .card .cnt{
-    position:absolute;bottom:-6px;left:-6px;min-width:20px;height:20px;border-radius:10px;
+    position:absolute;bottom:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;
     background:var(--bg);border:1px solid var(--line);color:var(--ink);
-    font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px;
+    font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;
   }
-  .card.tilted{transform:rotate(8deg);opacity:.55;filter:grayscale(.4);}
-  .card.activating{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 18px var(--gold2);transform:translateY(-6px) scale(1.04);z-index:5;}
-  .card.targetable{border-color:var(--green);box-shadow:0 0 0 2px var(--green);cursor:pointer;animation:pulse 1s infinite;}
+  .card.tilted{transform:rotate(8deg);opacity:.5;filter:grayscale(.45);}
+  .card.activating{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 18px var(--gold2);transform:translateY(-5px) scale(1.05);z-index:5;}
+  .card.buyable{border-color:var(--green);box-shadow:0 0 0 2px var(--green);animation:pulse 1.1s infinite;}
+  .card.targetable{border-color:var(--green);box-shadow:0 0 0 2px var(--green);animation:pulse 1s infinite;}
   .card.targetable.bad{border-color:var(--red);box-shadow:0 0 0 2px var(--red);}
-  .card.selected{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue),0 0 14px var(--blue);transform:translateY(-8px);}
-  .card.disabled{opacity:.35;pointer-events:none;}
-  @keyframes pulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35);}}
-  .card .tag{position:absolute;bottom:4px;right:4px;font-size:8px;color:var(--gold);font-weight:800;text-transform:uppercase;}
+  .card.tooexpensive{opacity:.4;}
+  .card.empty-pile{opacity:.25;pointer-events:none;}
+  @keyframes pulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.4);}}
 
-  .empty{color:var(--muted);font-size:12px;font-style:italic;padding:14px 6px;align-self:center;}
+  .empty{color:var(--muted);font-size:11px;font-style:italic;padding:10px 6px;align-self:center;}
 
-  /* ---------- Controls / banners ---------- */
   #actionbar{
-    flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 12px;
-    background:rgba(0,0,0,.3);border-top:1px solid var(--line);min-height:54px;
+    flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 10px;
+    background:rgba(0,0,0,.32);border-top:1px solid var(--line);min-height:52px;
   }
-  #prompt{flex:1;font-size:13px;font-weight:600;line-height:1.25;}
+  #prompt{flex:1;font-size:12.5px;font-weight:600;line-height:1.25;}
   #prompt .hl{color:var(--gold);}
+  #prompt .au{color:#ffd76b;font-weight:800;}
   .btn{
     background:linear-gradient(160deg,var(--gold),var(--gold2));color:#2a1d02;border:none;
-    border-radius:10px;padding:10px 16px;font-weight:800;font-size:14px;cursor:pointer;
+    border-radius:10px;padding:10px 15px;font-weight:800;font-size:14px;cursor:pointer;
     box-shadow:0 3px 0 #00000040;white-space:nowrap;
   }
   .btn:active{transform:translateY(2px);box-shadow:0 1px 0 #00000040;}
   .btn.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line);box-shadow:none;}
   .btn:disabled{opacity:.4;pointer-events:none;}
 
-  /* ---------- Log ---------- */
   #log{
-    position:fixed;right:8px;top:46px;width:210px;max-height:34vh;overflow-y:auto;
-    background:rgba(10,6,20,.82);border:1px solid var(--line);border-radius:10px;
+    position:fixed;right:8px;top:44px;width:215px;max-height:42vh;overflow-y:auto;
+    background:rgba(10,6,20,.9);border:1px solid var(--line);border-radius:10px;
     padding:8px;font-size:11px;line-height:1.4;display:none;z-index:30;
   }
   #log .l{margin-bottom:3px;color:var(--muted);}
   #log .l b{color:var(--ink);}
   #log .l.me{color:var(--blue);}
   #log .l.ai{color:var(--purple);}
-  #log .l.pp{color:var(--gold);}
+  #log .l.au{color:var(--gold);}
 
-  /* ---------- Overlays ---------- */
-  .overlay{
-    position:fixed;inset:0;background:rgba(8,4,16,.86);z-index:50;
-    display:flex;align-items:center;justify-content:center;padding:18px;
-  }
+  .overlay{position:fixed;inset:0;background:rgba(8,4,16,.88);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;}
   .modal{
     background:linear-gradient(165deg,var(--panel2),var(--panel));border:1px solid var(--gold2);
-    border-radius:16px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;
+    border-radius:16px;padding:20px;max-width:540px;width:100%;max-height:92vh;overflow-y:auto;
     box-shadow:0 12px 40px rgba(0,0,0,.6);text-align:center;
   }
-  .modal h1{color:var(--gold);font-size:30px;margin-bottom:4px;letter-spacing:1px;}
-  .modal h2{color:var(--gold);font-size:22px;margin-bottom:10px;}
-  .modal p{color:var(--ink);font-size:14px;line-height:1.5;margin-bottom:10px;text-align:left;}
-  .modal .rules{text-align:left;font-size:13px;color:var(--muted);line-height:1.5;}
+  .modal h1{color:var(--gold);font-size:28px;margin-bottom:2px;letter-spacing:1px;}
+  .modal h2{color:var(--gold);font-size:21px;margin-bottom:10px;}
+  .modal .sub{color:var(--muted);font-size:13px;margin-bottom:12px;}
+  .modal .rules{text-align:left;font-size:12.5px;color:var(--muted);line-height:1.5;background:rgba(0,0,0,.2);border-radius:10px;padding:12px;margin-bottom:6px;}
   .modal .rules b{color:var(--ink);}
-  .modal .row-btn{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
-  .scoreline{display:flex;justify-content:space-between;padding:8px 12px;border-radius:8px;margin:4px 0;font-size:15px;}
-  .scoreline.win{background:rgba(243,201,105,.15);border:1px solid var(--gold2);}
-  .scoreline b{color:var(--gold);font-size:18px;}
-  .seg{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0;}
-  .seg button{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;}
+  .modal .rules .au{color:var(--gold);font-weight:800;}
+  .seg{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:12px 0 4px;}
+  .seg .lab{width:100%;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
+  .seg button{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px;}
   .seg button.on{background:linear-gradient(160deg,var(--gold),var(--gold2));color:#2a1d02;border-color:var(--gold);}
+  .row-btn{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
+  .scoreline{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:8px;margin:4px 0;font-size:14px;gap:8px;}
+  .scoreline.win{background:rgba(243,201,105,.16);border:1px solid var(--gold2);}
+  .scoreline.me{outline:1px solid var(--blue);}
+  .scoreline b{color:var(--gold);font-size:18px;}
 
   .toast{
-    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    position:fixed;top:46%;left:50%;transform:translate(-50%,-50%);
     background:rgba(10,6,20,.92);border:1px solid var(--gold2);border-radius:14px;
-    padding:16px 26px;font-size:20px;font-weight:800;color:var(--gold);z-index:60;
-    pointer-events:none;opacity:0;transition:opacity .25s, transform .25s;text-align:center;
+    padding:14px 24px;font-size:19px;font-weight:800;color:var(--gold);z-index:60;
+    pointer-events:none;opacity:0;transition:opacity .22s, transform .22s;text-align:center;
   }
-  .toast.show{opacity:1;transform:translate(-50%,-60%);}
+  .toast.show{opacity:1;transform:translate(-50%,-58%);}
 
   @media (max-width:480px){
-    .card{width:80px;height:114px;}
+    .card{width:78px;height:112px;}
     .card .ic{font-size:18px;}
-    .card .nm{font-size:9.5px;}
-    .card .ef{font-size:8px;}
+    .card .nm{font-size:9px;}
+    .card .ef{font-size:7.5px;}
     #log{width:160px;font-size:10px;}
-    #topbar .title{font-size:14px;}
+    #topbar .title{font-size:13px;}
+    .pill{font-size:11px;padding:3px 7px;}
   }
 </style>
 </head>
@@ -166,29 +176,22 @@
   <span class="title">👑 KINGDOMERS</span>
   <span class="spacer"></span>
   <span class="pill">Tour <b id="turnNum">1</b>/3</span>
-  <span class="pill" id="phasePill">Préparation</span>
-  <button class="btn ghost" id="logBtn" style="padding:4px 10px;font-size:12px;">📜</button>
+  <span class="pill gold">💰 <b id="goldNum">0</b></span>
+  <span class="pill" id="phasePill">—</span>
+  <button class="btn ghost" id="logBtn" style="padding:4px 9px;font-size:12px;">📜</button>
 </div>
 
 <div id="board">
-  <div class="zone" id="aiZone">
-    <h3><span class="who">🤖 Royaume de l'IA</span> · Prestige <span class="sc" id="aiScore">0</span></h3>
-    <div class="row" id="kingdomAI"></div>
-  </div>
+  <div id="opponents"></div>
 
   <div class="zone" id="riverZone">
-    <h3><span class="who">🌊 La Rivière</span> <span style="color:var(--muted)">— piochez ici</span></h3>
+    <h3><span class="who">🌊 La Rivière</span> <span style="color:var(--muted)" id="riverHint">— marché commun</span></h3>
     <div class="row" id="river"></div>
   </div>
 
   <div class="zone" id="pZone">
-    <h3><span class="who">🏰 Votre Royaume</span> · Prestige <span class="sc" id="pScore">0</span></h3>
+    <h3><span class="who">🏰 Votre Royaume</span> · Prestige <span class="sc" id="pScore">0</span> <span class="turnflag" id="pTurnFlag"></span></h3>
     <div class="row" id="kingdomP"></div>
-  </div>
-
-  <div class="zone" id="handZone">
-    <h3><span class="who">✋ Votre Main</span> <span style="color:var(--muted)" id="handCount">(0)</span></h3>
-    <div class="row" id="hand"></div>
   </div>
 </div>
 
@@ -201,22 +204,32 @@
 <div id="log"></div>
 <div class="toast" id="toast"></div>
 
-<!-- Start / help overlay -->
+<!-- Start overlay -->
 <div class="overlay" id="startOverlay">
   <div class="modal">
     <h1>👑 KINGDOMERS</h1>
-    <p style="text-align:center;color:var(--muted);margin-bottom:14px;">Bâtissez votre royaume, enchaînez les effets, accumulez le Prestige.</p>
+    <div class="sub">Bâtissez une ligne-machine. Produisez de l'or, achetez, enchaînez, dominez.</div>
     <div class="rules">
-      <b>But :</b> avoir le plus de Points de Prestige (🟡) après 3 tours.<br><br>
+      <b>But :</b> le plus de Prestige (🟡) après 3 tours.<br>
+      <b>Votre royaume</b> est une <b>ligne de cartes</b> qui se réactive en entier, de gauche à droite, à chaque tour.<br><br>
       <b>Chaque tour :</b><br>
-      1️⃣ <b>Action</b> — vos cartes s'activent de gauche à droite et déclenchent leurs effets (piocher, incliner, redresser, prestige…).<br>
-      2️⃣ <b>Expansion</b> — posez des cartes de votre main pour agrandir votre royaume. Elles s'activeront au tour suivant.<br><br>
-      <b>Règles clés :</b> on ne pioche pas deux fois la même carte dans une même pioche. Une carte <i>redressée</i> pendant le tour rejoue une fois à la fin. Les cartes <i>inclinées</i> ne s'activent pas ce tour-ci.
+      1️⃣ <b>Action</b> — votre ligne s'active : elle produit de l'<span class="au">or</span> 💰 et déclenche les effets (incliner une carte adverse, redresser une des vôtres, protéger…).<br>
+      2️⃣ <b>Expansion</b> — dépensez votre or pour <b>acheter</b> des cartes de la Rivière ; elles se posent au bout de votre ligne et s'activeront dès le tour suivant.<br><br>
+      <span class="au">⚠️ L'or ne se garde pas</span> d'un tour à l'autre : produisez-le et dépensez-le dans le même tour.<br>
+      <b>Incliner</b> une carte = elle ne s'active pas ce tour-ci (ni ne produit son or). <b>Redresser</b> une carte inclinée la fait <b>rejouer</b> en fin de tour → combos. <b>Protéger</b> bloque la prochaine inclinaison.<br>
+      La Rivière est un <b>marché commun limité</b> : les piles s'épuisent, à vous de prendre avant les autres.
+    </div>
+    <div class="seg" id="pcSeg">
+      <span class="lab">Joueurs</span>
+      <button data-p="2" class="on">2</button>
+      <button data-p="3">3</button>
+      <button data-p="4">4</button>
     </div>
     <div class="seg" id="diffSeg">
-      <button data-d="0" class="on">IA Facile</button>
-      <button data-d="1">IA Normale</button>
-      <button data-d="2">IA Rusée</button>
+      <span class="lab">Niveau des IA</span>
+      <button data-d="0">Facile</button>
+      <button data-d="1" class="on">Normal</button>
+      <button data-d="2">Rusé</button>
     </div>
     <div class="row-btn">
       <button class="btn" id="startBtn">Jouer ⚔️</button>
@@ -238,99 +251,94 @@
 <script>
 'use strict';
 /* ============================================================
-   KINGDOMERS — jeu de construction de royaume (1 joueur vs IA)
-   Page web autonome, jouable sur ordinateur et iPhone.
+   KINGDOMERS — jeu de tableau (ligne réactivée) à économie d'or.
+   2 à 4 joueurs (vous + IA). Page web autonome, ordi & iPhone.
+   Boucle : la ligne produit de l'or -> on achète au marché commun
+   -> les cartes rejoignent la ligne et la renforcent au tour suivant.
    ============================================================ */
 
-/* ---------- Définition des cartes (le "catalogue de la boîte") ----------
-   Chaque carte :
-     id, name, icon, pp (prestige fixe), text (description courte)
-     effect: {type, n, target} décrivant l'action déclenchée à l'activation
-     score(state, owner, card): bonus de prestige calculé en fin de partie
-   Types d'effet :
-     draw      -> piocher n cartes différentes de la Rivière
-     tilt      -> incliner n cartes (target: 'enemy' = royaume adverse)
-     straighten-> redresser n de ses cartes inclinées (rejouent en fin de tour)
-     prestige  -> gagner n prestige immédiatement
-     discard   -> défausser n cartes de la main (libère / recyclage)
-     block     -> protège ce royaume de la prochaine inclinaison adverse ce tour
-     none      -> pas d'action (carte de pur prestige)
+/* ---------- Catalogue des piles ----------
+   Chaque carte se décrit par des VERBES, pas par des conditions :
+     cost  : or nécessaire pour l'acheter
+     pp    : prestige fixe (compté en fin de partie)
+     eff   : { gold, selfTilt, tilt, straighten, steal, block }
+       gold       -> produit X or à l'activation
+       selfTilt   -> la carte s'incline après s'être activée (combo avec straighten)
+       tilt       -> incline X carte(s) adverse(s) (déni d'activation)
+       straighten -> redresse X de VOS cartes inclinées (elles rejouent en fin de tour)
+       steal      -> vole X or à l'adversaire le plus riche ce tour
+       block      -> protège votre royaume de la prochaine inclinaison
 ------------------------------------------------------------ */
 const CATALOG = {
-  ferme:     {id:'ferme', name:'Ferme', icon:'🌾', pp:0, text:'Piochez 1 carte.', effect:{type:'draw', n:1}},
-  hameau:    {id:'hameau', name:'Hameau', icon:'🏡', pp:1, text:'Piochez 1 carte.', effect:{type:'draw', n:1}},
-  faubourgs: {id:'faubourgs', name:'Faubourgs', icon:'🏘️', pp:0, text:'Piochez 3 cartes différentes.', effect:{type:'draw', n:3}},
-  marche:    {id:'marche', name:'Marché', icon:'⚖️', pp:1, text:'Piochez 2 cartes.', effect:{type:'draw', n:2}},
-  forge:     {id:'forge', name:'Forge', icon:'🔨', pp:1, text:'Redressez 1 de vos cartes.', effect:{type:'straighten', n:1}},
-  atelier:   {id:'atelier', name:'Atelier', icon:'⚙️', pp:1, text:'Redressez 2 de vos cartes.', effect:{type:'straighten', n:2}},
-  caserne:   {id:'caserne', name:'Caserne', icon:'🛡️', pp:1, text:'Inclinez 1 carte adverse.', effect:{type:'tilt', n:1, target:'enemy'}},
-  tour:      {id:'tour', name:'Tour de Garde', icon:'🗼', pp:2, text:'Inclinez 1 carte adverse.', effect:{type:'tilt', n:1, target:'enemy'}},
-  rempart:   {id:'rempart', name:'Rempart', icon:'🧱', pp:2, text:'Protège votre royaume de la prochaine inclinaison.', effect:{type:'block'}},
-  mine:      {id:'mine', name:"Mine d'Or", icon:'⛏️', pp:1, text:'Gagnez 2 prestige.', effect:{type:'prestige', n:2}},
-  biblio:    {id:'biblio', name:'Bibliothèque', icon:'📚', pp:2, text:'Piochez 1 carte et gagnez 1 prestige.', effect:{type:'draw', n:1, bonusPP:1}},
-  monastere: {id:'monastere', name:'Monastère', icon:'⛪', pp:3, text:'Gagnez 1 prestige.', effect:{type:'prestige', n:1}},
-  chateau:   {id:'chateau', name:'Château', icon:'🏯', pp:5, text:'Pur prestige.', effect:{type:'none'}},
-  cathedrale:{id:'cathedrale', name:'Cathédrale', icon:'🏛️', pp:7, text:'Pur prestige.', effect:{type:'none'}},
-  jardins:   {id:'jardins', name:'Jardins', icon:'🌳', pp:1, text:'Fin de partie : +1 par autre Jardins de votre royaume.', effect:{type:'none'},
-              score:(st,own)=>countCard(own,'jardins')-1>0?countCard(own,'jardins')-1:0},
-  palais:    {id:'palais', name:'Palais', icon:'👑', pp:4, text:'Fin de partie : +1 par tranche de 3 cartes.', effect:{type:'none'},
-              score:(st,own)=>Math.floor(own.kingdom.length/3)},
+  hameau:    {id:'hameau',  name:'Hameau',       icon:'🏡', cost:2, pp:0, eff:{gold:1}},
+  moulin:    {id:'moulin',  name:'Moulin',       icon:'🌾', cost:3, pp:0, eff:{gold:2}},
+  caravane:  {id:'caravane',name:'Caravane',     icon:'🐫', cost:4, pp:1, eff:{gold:2}},
+  marche:    {id:'marche',  name:'Marché',       icon:'⚖️', cost:5, pp:0, eff:{gold:3}},
+  mine:      {id:'mine',    name:"Mine d'Or",    icon:'⛏️', cost:4, pp:0, eff:{gold:3, selfTilt:true}},
+  banque:    {id:'banque',  name:'Banque',       icon:'🏦', cost:6, pp:1, eff:{gold:4, selfTilt:true}},
+  forge:     {id:'forge',   name:'Forge',        icon:'🔨', cost:3, pp:0, eff:{straighten:1}},
+  atelier:   {id:'atelier', name:'Atelier',      icon:'⚙️', cost:5, pp:2, eff:{straighten:2}},
+  caserne:   {id:'caserne', name:'Caserne',      icon:'🛡️', cost:3, pp:1, eff:{tilt:1}},
+  garde:     {id:'garde',   name:'Tour de Garde',icon:'🗼', cost:5, pp:2, eff:{gold:1, tilt:1}},
+  pillards:  {id:'pillards',name:'Pillards',     icon:'⚔️', cost:4, pp:0, eff:{tilt:2}},
+  brigands:  {id:'brigands',name:'Brigands',     icon:'🏴‍☠️', cost:4, pp:0, eff:{gold:1, steal:2}},
+  rempart:   {id:'rempart', name:'Rempart',      icon:'🧱', cost:3, pp:2, eff:{block:true}},
+  monastere: {id:'monastere',name:'Monastère',   icon:'⛪', cost:5, pp:3, eff:{gold:1}},
+  statue:    {id:'statue',  name:'Statue',       icon:'🗽', cost:6, pp:4, eff:{}},
+  chateau:   {id:'chateau', name:'Château',      icon:'🏯', cost:7, pp:5, eff:{}},
+  cathedrale:{id:'cathedrale',name:'Cathédrale', icon:'🏛️', cost:9, pp:8, eff:{}},
 };
+const START_CARD = {id:'ferme', name:'Ferme', icon:'🌱', cost:0, pp:0, eff:{gold:1}};
 
-// piles disponibles dans la "boîte" (hors carte de départ Ferme)
-const BOX_PILES = ['hameau','faubourgs','marche','forge','atelier','caserne','tour','rempart',
-                   'mine','biblio','monastere','chateau','cathedrale','jardins','palais'];
-
-const PILE_SIZE = 12;        // 12 exemplaires par pile
-const RIVER_PILES = 10;      // 10 piles dans la Rivière
+const ALL_PILES = Object.keys(CATALOG);
+const RIVER_PILES = 10;   // beaucoup de piles = variété (la fantaisie du royaume)
 const TURNS = 3;
-const START_CARDS = ['ferme','ferme','ferme'];
+const MAX_ACTS = 3;       // une carte s'active au plus 3 fois / tour (évite les boucles infinies)
 
-function countCard(owner, id){ return owner.kingdom.filter(c=>c.id===id).length; }
-
-/* ---------- État du jeu ---------- */
 let G = null;
-let DIFF = 0;
+let DIFF = 1;
+let NUMP = 2;
 let uid = 1;
 
-function makeCardInstance(id){
-  const def = CATALOG[id];
-  return {uid:uid++, id, name:def.name, icon:def.icon, pp:def.pp, text:def.text, def, tilted:false, replayed:false};
+function effText(def){
+  const e = def.eff || {};
+  const p = [];
+  if(e.gold) p.push('+'+e.gold+' or');
+  if(e.selfTilt) p.push("puis s'incline");
+  if(e.straighten) p.push('Redresse '+e.straighten);
+  if(e.tilt) p.push('Incline '+e.tilt+' adv.');
+  if(e.steal) p.push('Vole '+e.steal+' or');
+  if(e.block) p.push('Protège');
+  if(p.length===0) p.push('Prestige pur');
+  return p.join(' · ');
+}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function makeInstance(def){
+  return {uid:uid++, def, tilted:false, acts:0};
 }
 
 function newGame(){
-  // choisir 10 piles aléatoires de la boîte
-  const piles = shuffle(BOX_PILES.slice()).slice(0, RIVER_PILES);
-  const river = piles.map(id=>({id, def:CATALOG[id], count:PILE_SIZE}));
+  const piles = shuffle(ALL_PILES.slice()).slice(0, RIVER_PILES).sort((a,b)=>CATALOG[a].cost-CATALOG[b].cost);
+  const copies = NUMP*2 + 2;     // 2j:6  3j:8  4j:10  -> rareté qui crée la contention
+  const river = piles.map(id=>({id, def:CATALOG[id], count:copies}));
 
-  const mkPlayer = (name,isAI)=>({
-    name, isAI,
-    kingdom: START_CARDS.map(makeCardInstance),
-    hand: [],
-    prestige: 0,        // prestige gagné pendant la partie
-    block: false,       // protection active ce tour
-  });
-
-  G = {
-    turn: 1,
-    phase: 'idle',
-    river,
-    discard: [],
-    players: [mkPlayer('Vous', false), mkPlayer('IA', true)],
-    me: null, ai: null,
-    log: [],
-  };
-  G.me = G.players[0];
-  G.ai = G.players[1];
-  // premier joueur au hasard
-  G.firstPlayer = Math.random()<0.5 ? 0 : 1;
-  log(`Nouvelle partie. Rivière : ${piles.map(p=>CATALOG[p].name).join(', ')}.`);
-  log(`Premier joueur : ${G.players[G.firstPlayer].name}.`);
-}
-
-function shuffle(a){
-  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
-  return a;
+  const players = [];
+  for(let i=0;i<NUMP;i++){
+    players.push({
+      idx:i,
+      name: i===0?'Vous':('IA '+i),
+      isAI: i!==0,
+      kingdom: [makeInstance(START_CARD), makeInstance(START_CARD), makeInstance(START_CARD)],
+      gold:0,
+      block:false,
+    });
+  }
+  G = {turn:1, phase:'idle', river, players, me:players[0], firstPlayer:Math.floor(Math.random()*NUMP), log:[]};
+  log(`Nouvelle partie à ${NUMP} joueurs.`);
+  log(`Rivière (${copies} ex./pile) : ${piles.map(p=>CATALOG[p].name).join(', ')}.`);
+  log(`Premier joueur : ${players[G.firstPlayer].name}.`);
 }
 
 /* ---------- Journal ---------- */
@@ -338,113 +346,77 @@ function log(msg, cls){
   G && G.log.push({msg, cls});
   const el = document.getElementById('log');
   const d = document.createElement('div');
-  d.className = 'l'+(cls?' '+cls:'');
-  d.innerHTML = msg;
-  el.appendChild(d);
-  el.scrollTop = el.scrollHeight;
+  d.className='l'+(cls?' '+cls:'');
+  d.innerHTML=msg; el.appendChild(d); el.scrollTop=el.scrollHeight;
 }
 
-/* ---------- Rendu ---------- */
+/* ---------- Helpers ---------- */
 const $ = id=>document.getElementById(id);
+const sleep = ms=>new Promise(r=>setTimeout(r,ms));
+function turnOrder(){ const o=[]; for(let k=0;k<G.players.length;k++) o.push(G.players[(G.firstPlayer+k)%G.players.length]); return o; }
+function opponents(pl){ return G.players.filter(p=>p!==pl); }
+function score(pl){ return pl.kingdom.reduce((s,c)=>s+c.def.pp,0); }
 
-function cardEl(card, opts={}){
-  const el = document.createElement('div');
-  el.className = 'card'+(opts.sm?' sm':'');
-  if(card.tilted) el.classList.add('tilted');
-  el.dataset.uid = card.uid;
-  let inner = '';
-  if(opts.showPP!==false && (card.pp>0)) inner += `<div class="pp">${card.pp}</div>`;
-  if(opts.count!=null) inner += `<div class="cnt">×${opts.count}</div>`;
-  inner += `<div class="nm">${card.name}</div>`;
-  inner += `<div class="ic">${card.icon}</div>`;
-  inner += `<div class="ef">${card.text}</div>`;
-  if(card.def && card.def.score) inner += `<div class="tag">★ scoring</div>`;
-  el.innerHTML = inner;
+/* ---------- Rendu ---------- */
+function cardEl(def, opts={}){
+  const el=document.createElement('div');
+  el.className='card'+(opts.sm?' sm':'');
+  if(opts.tilted) el.classList.add('tilted');
+  if(def.pp>0) el.innerHTML+=`<div class="pp">${def.pp}</div>`;
+  if(opts.cost!=null) el.innerHTML+=`<div class="cost">💰${opts.cost}</div>`;
+  if(opts.count!=null) el.innerHTML+=`<div class="cnt">×${opts.count}</div>`;
+  el.innerHTML+=`<div class="nm">${def.name}</div><div class="ic">${def.icon}</div><div class="ef">${effText(def)}</div>`;
   return el;
 }
 
 function render(){
-  $('turnNum').textContent = G.turn;
-  // scores live (prestige posé + gagné)
-  $('pScore').textContent = liveScore(G.me);
-  $('aiScore').textContent = liveScore(G.ai);
+  $('turnNum').textContent=G.turn;
+  $('goldNum').textContent = G.me.gold;
+  $('pScore').textContent=score(G.me);
 
-  // Royaume IA
-  renderKingdom('kingdomAI', G.ai, true);
-  // Royaume joueur
-  renderKingdom('kingdomP', G.me, false);
+  // adversaires
+  const opp=$('opponents'); opp.innerHTML='';
+  G.players.forEach(pl=>{
+    if(pl===G.me) return;
+    const z=document.createElement('div'); z.className='zone';
+    const first = G.players[G.firstPlayer]===pl;
+    z.innerHTML=`<h3><span class="who">🤖 ${pl.name}</span> · Prestige <span class="sc">${score(pl)}</span> · 💰<span class="au">${pl.gold}</span>${first?' <span class="turnflag">• 1er</span>':''}</h3>`;
+    const row=document.createElement('div'); row.className='row'; row.id='k_'+pl.idx;
+    pl.kingdom.forEach(c=>{ const e=cardEl(c.def,{sm:true,tilted:c.tilted}); e.dataset.uid=c.uid; e.dataset.owner=pl.idx; row.appendChild(e); });
+    if(pl.kingdom.length===0){ const e=document.createElement('div'); e.className='empty'; e.textContent='vide'; row.appendChild(e); }
+    z.appendChild(row); opp.appendChild(z);
+  });
 
-  // Rivière
-  const rv = $('river'); rv.innerHTML='';
+  // rivière
+  const rv=$('river'); rv.innerHTML='';
   G.river.forEach((pile,i)=>{
-    const sample = {uid:'r'+i, id:pile.id, name:pile.def.name, icon:pile.def.icon, pp:pile.def.pp, text:pile.def.text, def:pile.def};
-    const el = cardEl(sample, {count:pile.count, sm:true});
-    el.dataset.river = i;
-    if(pile.count<=0){el.classList.add('disabled');}
-    rv.appendChild(el);
+    const e=cardEl(pile.def,{cost:pile.def.cost,count:pile.count});
+    e.dataset.river=i;
+    if(pile.count<=0) e.classList.add('empty-pile');
+    rv.appendChild(e);
   });
 
-  // Main
-  const h = $('hand'); h.innerHTML='';
-  $('handCount').textContent = `(${G.me.hand.length})`;
-  if(G.me.hand.length===0){
-    const e=document.createElement('div'); e.className='empty'; e.textContent='Main vide'; h.appendChild(e);
-  }
-  G.me.hand.forEach(card=>{
-    const el = cardEl(card,{sm:true,showPP:true});
-    el.dataset.hand = card.uid;
-    h.appendChild(el);
-  });
-}
-
-function renderKingdom(elId, owner, isAI){
-  const k = $(elId); k.innerHTML='';
-  if(owner.kingdom.length===0){
-    const e=document.createElement('div'); e.className='empty'; e.textContent='Royaume vide'; k.appendChild(e);
-    return;
-  }
-  owner.kingdom.forEach(card=>{
-    const el = cardEl(card,{sm:isAI});
-    el.dataset.uid = card.uid;
-    el.dataset.owner = isAI?'ai':'me';
-    k.appendChild(el);
-  });
+  // votre royaume
+  const kp=$('kingdomP'); kp.innerHTML='';
+  const meFirst = G.players[G.firstPlayer]===G.me;
+  $('pTurnFlag').textContent = meFirst?'• 1er joueur':'';
+  if(G.me.kingdom.length===0){ const e=document.createElement('div'); e.className='empty'; e.textContent='Royaume vide'; kp.appendChild(e); }
+  G.me.kingdom.forEach(c=>{ const e=cardEl(c.def,{tilted:c.tilted}); e.dataset.uid=c.uid; e.dataset.owner=0; kp.appendChild(e); });
 }
 
 let toastTimer=null;
-function toast(msg, ms=1100){
-  const t=$('toast'); t.innerHTML=msg; t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'), ms);
-}
+function toast(msg,ms=1000){ const t=$('toast'); t.innerHTML=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),ms); }
+function setPrompt(h){ $('prompt').innerHTML=h; }
+function setPhase(t){ $('phasePill').textContent=t; }
 
-function liveScore(owner){
-  return owner.prestige + owner.kingdom.reduce((s,c)=>s+c.pp,0);
-}
-function finalScore(owner){
-  let s = owner.prestige;
-  owner.kingdom.forEach(c=>{
-    s += c.pp;
-    if(c.def && c.def.score) s += c.def.score(G, owner, c);
-  });
-  return s;
-}
-
-/* ---------- Utilitaires d'attente / animation ---------- */
-const sleep = ms=>new Promise(r=>setTimeout(r,ms));
-
-function unhighlightAll(){
-  document.querySelectorAll('.activating').forEach(e=>e.classList.remove('activating'));
+function scrollTo(uid, ownerIdx){
+  const sel = ownerIdx===0?`#kingdomP [data-uid="${uid}"]`:`#k_${ownerIdx} [data-uid="${uid}"]`;
+  const n=document.querySelector(sel); if(n) n.scrollIntoView({inline:'center',block:'nearest'});
 }
 
 /* ============================================================
    BOUCLE DE JEU
    ============================================================ */
-let pendingResolve = null;  // résout les choix interactifs du joueur humain
-
-function setPrompt(html){ $('prompt').innerHTML = html; }
-function setPhasePill(t){ $('phasePill').textContent = t; }
-
 async function startGame(){
   newGame();
   $('startOverlay').style.display='none';
@@ -454,440 +426,260 @@ async function startGame(){
 }
 
 async function runTurn(){
-  // les inclinaisons ne durent que le tour : on repart propre
-  G.players.forEach(pl=>pl.kingdom.forEach(c=>{c.tilted=false; c.replayed=false;}));
-  setPhasePill('Tour '+G.turn+' — Action');
-  setPrompt(`<span class="hl">Tour ${G.turn}</span> — Phase d'Action`);
-  toast(`Tour ${G.turn}`, 900);
-  await sleep(950);
+  // tout le monde se redresse, l'or repart de zéro
+  G.players.forEach(pl=>{ pl.kingdom.forEach(c=>{c.tilted=false;c.acts=0;}); pl.gold=0; pl.block=false; });
+  // compensation d'ordre du tour (one-shot, tour 1) : plus on joue tard, plus on a d'or
+  if(G.turn===1){ turnOrder().forEach((pl,k)=>{ pl.gold += k; if(k>0) log(`${pl.name} reçoit ${k} or (compensation d'ordre).`); }); }
 
-  // ordre des joueurs selon le premier joueur
-  const order = G.firstPlayer===0 ? [G.me, G.ai] : [G.ai, G.me];
-  for(const pl of order){
-    pl.block = false;
-    await actionPhase(pl);
-  }
+  toast('Tour '+G.turn, 800); setPhase('Tour '+G.turn); await sleep(850);
 
-  // Phase d'expansion : IA d'abord ou joueur ? chacun la sienne, ordre = premier joueur
-  for(const pl of order){
-    if(pl.isAI) await aiExpansion(pl);
-    else await playerExpansion(pl);
-  }
+  const order = turnOrder();
+  // PHASE D'ACTION (tous, dans l'ordre) — l'or s'accumule, les attaques résolvent
+  for(const pl of order) await actionPhase(pl);
+  // PHASE D'EXPANSION (tous, dans l'ordre) — on dépense l'or au marché
+  for(const pl of order){ if(pl.isAI) await aiExpansion(pl); else await humanExpansion(pl); }
 
-  // fin de tour
-  if(G.turn>=TURNS){
-    endGame();
-    return;
-  }
-  G.turn++;
-  // le premier joueur tourne
-  G.firstPlayer = (G.firstPlayer+1)%2;
-  render();
-  await runTurn();
+  if(G.turn>=TURNS){ endGame(); return; }
+  G.turn++; G.firstPlayer=(G.firstPlayer+1)%G.players.length;
+  render(); await runTurn();
 }
 
 /* ---------- Phase d'action ---------- */
 async function actionPhase(pl){
-  const who = pl.isAI?'🤖 IA':'🏰 Vous';
-  setPhasePill('Action — '+pl.name);
-  setPrompt(`Phase d'Action de <span class="hl">${pl.name}</span>…`);
-  // réinitialise les marqueurs de rejeu
-  pl.kingdom.forEach(c=>{c.replayed=false;});
-
-  // file d'activation initiale : toutes les cartes de gauche à droite
-  // les cartes redressées en cours de tour seront ajoutées à une 2e passe
-  const replayQueue = [];
-
-  for(let i=0;i<pl.kingdom.length;i++){
-    const card = pl.kingdom[i];
-    if(card.tilted) continue;       // inclinée : ne s'active pas
-    await activateCard(pl, card, replayQueue);
+  setPhase('Action — '+pl.name);
+  setPrompt(`<span class="hl">Phase d'Action</span> — ${pl.name} active sa ligne…`);
+  const cls = pl.isAI?'ai':'me';
+  const replay=[];
+  for(const c of pl.kingdom){ if(c.tilted) continue; await activate(pl,c,replay); }
+  while(replay.length){
+    const c=replay.shift();
+    if(!c || c.tilted || c.acts>=MAX_ACTS || !pl.kingdom.includes(c)) continue;
+    log(`${pl.name} — <b>${c.def.name}</b> rejoue (redressée).`, cls);
+    await activate(pl,c,replay);
   }
-
-  // 2e passe : cartes redressées pendant le tour rejouent une fois
-  // (on traite la file dans l'ordre où elles ont été redressées)
-  while(replayQueue.length){
-    const card = replayQueue.shift();
-    if(!card || card.tilted || card.replayed) continue;
-    if(!pl.kingdom.includes(card)) continue;
-    card.replayed = true;
-    log(`${who} — <b>${card.name}</b> rejoue (redressée).`, pl.isAI?'ai':'me');
-    await activateCard(pl, card, replayQueue);
-  }
-
-  // en fin de phase d'action, les cartes inclinées de ce joueur se redressent
-  // pour le tour suivant
-  pl.kingdom.forEach(c=>{c.tilted=false;});
+  // les cartes inclinées de CE joueur se relèvent pour le prochain tour
+  pl.kingdom.forEach(c=>c.tilted=false);
   render();
 }
 
-async function activateCard(pl, card, replayQueue){
-  render(); // re-render avant d'appliquer la surbrillance
+async function activate(pl,card,replay){
+  card.acts++;
+  render();
   document.querySelectorAll(`[data-uid="${card.uid}"]`).forEach(e=>e.classList.add('activating'));
-  // scroll vers la carte active du joueur courant
-  const node = document.querySelector(`#${pl.isAI?'kingdomAI':'kingdomP'} [data-uid="${card.uid}"]`);
-  if(node) node.scrollIntoView({inline:'center', block:'nearest'});
-  await sleep(pl.isAI?420:480);
-
-  const ef = card.def.effect;
-  await applyEffect(pl, card, ef, replayQueue);
-
-  unhighlightAll();
+  scrollTo(card.uid, pl.idx);
+  await sleep(pl.isAI?360:430);
+  await applyEffect(pl,card,replay);
+  document.querySelectorAll('.activating').forEach(e=>e.classList.remove('activating'));
   render();
 }
 
-async function applyEffect(pl, card, ef, replayQueue){
-  const whoCls = pl.isAI?'ai':'me';
-  const opp = pl===G.me?G.ai:G.me;
-  switch(ef.type){
-    case 'none': break;
-    case 'prestige':
-      pl.prestige += ef.n;
-      log(`${pl.name} gagne <b>${ef.n}</b> prestige (${card.name}).`, 'pp');
-      toast(`+${ef.n} 🟡`, 700);
-      break;
-    case 'draw':
-      await doDraw(pl, ef.n, card);
-      if(ef.bonusPP){ pl.prestige+=ef.bonusPP; log(`${pl.name} gagne <b>${ef.bonusPP}</b> prestige (${card.name}).`,'pp'); }
-      break;
-    case 'straighten':
-      await doStraighten(pl, ef.n, replayQueue, card);
-      break;
-    case 'tilt':
-      await doTilt(pl, opp, ef.n, card);
-      break;
-    case 'block':
-      pl.block = true;
-      log(`${pl.name} érige un Rempart : prochaine inclinaison bloquée.`, whoCls);
-      break;
-  }
-  render();
+async function applyEffect(pl,card,replay){
+  const cls=pl.isAI?'ai':'me';
+  const e=card.def.eff||{};
+  if(e.gold){ pl.gold+=e.gold; if(pl===G.me) toast('+'+e.gold+' or 💰',600); log(`${pl.name} produit <b>+${e.gold} or</b> (${card.def.name}).`,'au'); render(); }
+  if(e.steal) await doSteal(pl,e.steal,card);
+  if(e.straighten) await doStraighten(pl,e.straighten,replay,card);
+  if(e.tilt) await doTilt(pl,e.tilt,card);
+  if(e.block){ pl.block=true; log(`${pl.name} érige un Rempart (prochaine inclinaison bloquée).`,cls); }
+  if(e.selfTilt){ card.tilted=true; log(`${card.def.name} s'incline.`,cls); render(); }
 }
 
-/* ---------- Effets concrets ---------- */
-async function doDraw(pl, n, card){
-  const avail = ()=>G.river.filter(p=>p.count>0);
-  const picks = [];
+async function doSteal(pl,n,card){
+  const rich = opponents(pl).filter(o=>o.gold>0).sort((a,b)=>b.gold-a.gold)[0];
+  if(!rich) return;
+  const amt=Math.min(n,rich.gold); rich.gold-=amt; pl.gold+=amt;
+  log(`${pl.name} vole <b>${amt} or</b> à ${rich.name} (${card.def.name}).`, pl.isAI?'ai':'me');
+  if(pl===G.me||rich===G.me) toast('🏴‍☠️ '+amt+' or volé',900);
+  render(); await sleep(250);
+}
+
+async function doStraighten(pl,n,replay,card){
   for(let k=0;k<n;k++){
-    const choices = avail().filter(p=>!picks.includes(p)); // pas deux fois la même pile dans une pioche
-    if(choices.length===0) break;
-    let pile;
-    if(pl.isAI){
-      pile = aiChooseDraw(pl, choices, picks);
-      await sleep(260);
-    }else{
-      pile = await humanPick(`Piochez (${k+1}/${n}) — choisissez une carte différente dans la Rivière`, choices);
-    }
-    if(!pile) break;
-    picks.push(pile);
-    pile.count--;
-    const inst = makeCardInstance(pile.id);
-    pl.hand.push(inst);
-    log(`${pl.name} pioche <b>${pile.def.name}</b>.`, pl.isAI?'ai':'me');
+    const tilted=pl.kingdom.filter(c=>c.tilted);
+    if(tilted.length===0){ if(pl===G.me&&k===0) toast('Aucune carte à redresser',800); break; }
+    let t;
+    if(pl.isAI){ t=tilted.sort((a,b)=>effValue(b.def)-effValue(a.def))[0]; await sleep(220); }
+    else t=await pickOwnTilted(`Redressez une de VOS cartes inclinées (${k+1}/${n}) — elle rejouera`, pl);
+    if(!t) break;
+    t.tilted=false;
+    if(t.acts<MAX_ACTS && !replay.includes(t)) replay.push(t);
+    log(`${pl.name} redresse <b>${t.def.name}</b>.`, pl.isAI?'ai':'me');
     render();
   }
 }
 
-async function doStraighten(pl, n, replayQueue, card){
-  let done=0;
+async function doTilt(pl,n,card){
   for(let k=0;k<n;k++){
-    const tiltedCards = pl.kingdom.filter(c=>c.tilted);
-    if(tiltedCards.length===0) break;
-    let target;
+    // cible : cartes actives des adversaires
+    const targets=[];
+    opponents(pl).forEach(o=>o.kingdom.forEach(c=>{ if(!c.tilted) targets.push({o,c}); }));
+    if(targets.length===0) break;
+    let pick;
     if(pl.isAI){
-      // l'IA redresse sa carte inclinée la plus utile (priorité prestige/draw)
-      target = tiltedCards.sort((a,b)=>effValue(b)-effValue(a))[0];
+      pick=targets.sort((a,b)=>(effValue(b.c.def)+b.c.def.pp)-(effValue(a.c.def)+a.c.def.pp))[0];
       await sleep(240);
-    }else{
-      target = await humanPickKingdom(`Redressez une de vos cartes inclinées (${k+1}/${n})`, pl, c=>c.tilted, false);
+    } else {
+      pick=await pickEnemyCard(`Inclinez une carte adverse (${k+1}/${n})`);
+      if(!pick) break;
     }
-    if(!target) break;
-    target.tilted=false;
-    if(!target.replayed && !replayQueue.includes(target)) replayQueue.push(target);
-    log(`${pl.name} redresse <b>${target.name}</b> (rejouera ce tour).`, pl.isAI?'ai':'me');
-    done++; render();
-  }
-  if(done===0 && !pl.isAI) toast('Aucune carte inclinée', 800);
-}
-
-async function doTilt(pl, opp, n, card){
-  for(let k=0;k<n;k++){
-    const candidates = opp.kingdom.filter(c=>!c.tilted);
-    if(candidates.length===0) break;
-    if(opp.block){
-      opp.block=false;
-      log(`${opp.name} bloque l'inclinaison (Rempart) !`, opp.isAI?'ai':'me');
-      toast('🧱 Bloqué !', 900);
-      continue;
-    }
-    let target;
-    if(pl.isAI){
-      // l'IA incline la carte adverse la plus précieuse encore active
-      target = candidates.sort((a,b)=>effValue(b)+b.pp-(effValue(a)+a.pp))[0];
-      await sleep(260);
-    }else{
-      target = await humanPickKingdom(`Inclinez une carte adverse (${k+1}/${n})`, opp, c=>!c.tilted, true);
-    }
-    if(!target) break;
-    target.tilted=true;
-    log(`${pl.name} incline <b>${target.name}</b> de ${opp.name}.`, pl.isAI?'ai':'me');
-    render();
-    await sleep(200);
+    const o=pick.o, c=pick.c;
+    if(o.block){ o.block=false; log(`${o.name} bloque l'inclinaison (Rempart) !`, o.isAI?'ai':'me'); toast('🧱 Bloqué !',900); continue; }
+    c.tilted=true;
+    log(`${pl.name} incline <b>${c.def.name}</b> de ${o.name}.`, pl.isAI?'ai':'me');
+    render(); await sleep(200);
   }
 }
 
-// valeur heuristique d'une carte pour l'IA
-function effValue(card){
-  const ef=card.def.effect;
-  switch(ef.type){
-    case 'draw': return 2*ef.n+(ef.bonusPP||0);
-    case 'prestige': return 2*ef.n;
-    case 'tilt': return 3*ef.n;
-    case 'straighten': return 2*ef.n;
-    case 'block': return 1;
-    default: return 0;
-  }
+function effValue(def){
+  const e=def.eff||{}; let v=0;
+  v+=(e.gold||0)*2; v+=(e.straighten||0)*3; v+=(e.tilt||0)*3; v+=(e.steal||0)*2; if(e.block)v+=1;
+  if(e.selfTilt) v-=1;
+  return v;
 }
 
-/* ---------- Choix interactifs du joueur humain ---------- */
-function humanPick(promptHtml, piles){
+/* ---------- Choix humains (action) ---------- */
+function pickOwnTilted(promptHtml, pl){
   return new Promise(resolve=>{
-    setPrompt(promptHtml);
-    $('cancelBtn').style.display='none';
-    $('mainBtn').style.display='none';
-    // marquer les piles cliquables
-    document.querySelectorAll('#river .card').forEach(el=>{
-      const idx = +el.dataset.river;
-      const pile = G.river[idx];
-      if(piles.includes(pile)){
-        el.classList.add('targetable');
-        const handler=()=>{ cleanup(); resolve(pile); };
-        el._h = handler;
-        el.addEventListener('click', handler);
-      }
-    });
-    function cleanup(){
-      document.querySelectorAll('#river .card').forEach(el=>{
-        el.classList.remove('targetable');
-        if(el._h){ el.removeEventListener('click', el._h); el._h=null; }
-      });
-      $('mainBtn').style.display='';
-    }
-  });
-}
-
-function humanPickKingdom(promptHtml, owner, filter, bad){
-  return new Promise(resolve=>{
-    setPrompt(promptHtml);
-    $('mainBtn').style.display='none';
-    const ownerSel = owner.isAI?'#kingdomAI':'#kingdomP';
-    const els = [...document.querySelectorAll(`${ownerSel} .card`)];
-    let any=false;
+    setPrompt(promptHtml); $('mainBtn').style.display='none';
+    const els=[...document.querySelectorAll('#kingdomP .card')]; let any=false;
     els.forEach(el=>{
-      const uidv = +el.dataset.uid;
-      const card = owner.kingdom.find(c=>c.uid===uidv);
-      if(card && filter(card)){
-        any=true;
-        el.classList.add('targetable'); if(bad) el.classList.add('bad');
-        const handler=()=>{ cleanup(); resolve(card); };
-        el._h=handler; el.addEventListener('click',handler);
-      }
+      const c=pl.kingdom.find(x=>x.uid==el.dataset.uid);
+      if(c&&c.tilted){ any=true; el.classList.add('targetable');
+        el._h=()=>{cleanup();resolve(c);}; el.addEventListener('click',el._h); }
     });
     if(!any){ cleanup(); resolve(null); return; }
-    function cleanup(){
-      els.forEach(el=>{
-        el.classList.remove('targetable','bad');
-        if(el._h){ el.removeEventListener('click', el._h); el._h=null; }
-      });
-      $('mainBtn').style.display='';
-    }
+    function cleanup(){ els.forEach(el=>{el.classList.remove('targetable'); if(el._h){el.removeEventListener('click',el._h);el._h=null;}}); $('mainBtn').style.display=''; }
+  });
+}
+function pickEnemyCard(promptHtml){
+  return new Promise(resolve=>{
+    setPrompt(promptHtml); $('mainBtn').style.display='none';
+    const els=[...document.querySelectorAll('#opponents .card')]; let any=false;
+    els.forEach(el=>{
+      const o=G.players[+el.dataset.owner]; const c=o.kingdom.find(x=>x.uid==el.dataset.uid);
+      if(c&&!c.tilted){ any=true; el.classList.add('targetable','bad');
+        el._h=()=>{cleanup();resolve({o,c});}; el.addEventListener('click',el._h); }
+    });
+    if(!any){ cleanup(); resolve(null); return; }
+    function cleanup(){ els.forEach(el=>{el.classList.remove('targetable','bad'); if(el._h){el.removeEventListener('click',el._h);el._h=null;}}); $('mainBtn').style.display=''; }
   });
 }
 
-/* ---------- Phase d'expansion (joueur) ---------- */
-async function playerExpansion(pl){
-  setPhasePill('Expansion — Vous');
-  if(pl.hand.length===0){
-    setPrompt(`Phase d'Expansion : aucune carte en main à poser.`);
-    await waitMainBtn('Terminer le tour');
-    return;
-  }
+/* ---------- Phase d'expansion (humain) ---------- */
+function humanExpansion(pl){
+  setPhase('Expansion — Vous');
   return new Promise(resolve=>{
-    const selected = new Set();    // uids choisis pour la pose, dans l'ordre
-    const order = [];
-    setPrompt(`<span class="hl">Expansion</span> — touchez des cartes de votre main pour les poser (dans l'ordre), puis validez.`);
-    $('mainBtn').textContent = 'Poser & finir le tour';
-    $('mainBtn').style.display='';
-    $('cancelBtn').style.display='';
-    $('cancelBtn').textContent='Tout garder';
-
-    function refresh(){
-      document.querySelectorAll('#hand .card').forEach(el=>{
-        const uidv=+el.dataset.hand;
-        el.classList.toggle('selected', selected.has(uidv));
+    function refreshRiver(){
+      document.querySelectorAll('#river .card').forEach(el=>{
+        const pile=G.river[+el.dataset.river];
+        el.classList.remove('buyable','tooexpensive');
+        if(pile.count<=0) return;
+        if(pl.gold>=pile.def.cost) el.classList.add('buyable'); else el.classList.add('tooexpensive');
       });
-      const n=selected.size;
-      $('mainBtn').textContent = n>0?`Poser ${n} carte(s)`:'Ne rien poser';
+      $('goldNum').textContent=pl.gold;
+      setPrompt(`<span class="hl">Expansion</span> — il vous reste <span class="au">${pl.gold} or</span> 💰. Touchez une carte de la Rivière pour l'acheter, puis terminez.`);
+      $('mainBtn').textContent='Terminer le tour';
     }
-
-    function handHandler(e){
-      const el = e.target.closest('#hand .card'); if(!el) return;
-      const uidv=+el.dataset.hand;
-      if(selected.has(uidv)){ selected.delete(uidv); const i=order.indexOf(uidv); if(i>=0)order.splice(i,1);}
-      else { selected.add(uidv); order.push(uidv); }
-      refresh();
+    function onRiver(ev){
+      const el=ev.target.closest('#river .card'); if(!el) return;
+      const i=+el.dataset.river, pile=G.river[i];
+      if(pile.count<=0) return;
+      if(pl.gold<pile.def.cost){ toast("Pas assez d'or",700); return; }
+      pl.gold-=pile.def.cost; pile.count--;
+      pl.kingdom.push(makeInstance(pile.def));
+      log(`Vous achetez <b>${pile.def.name}</b> (−${pile.def.cost} or).`,'me');
+      toast(pile.def.icon+' acheté !',700);
+      render(); refreshRiver();
     }
-    $('hand').addEventListener('click', handHandler);
-
-    function finish(placeThem){
-      $('hand').removeEventListener('click', handHandler);
-      $('cancelBtn').style.display='none';
-      $('mainBtn').textContent='Continuer';
-      if(placeThem){
-        order.forEach(uidv=>{
-          const idx = pl.hand.findIndex(c=>c.uid===uidv);
-          if(idx>=0){
-            const card = pl.hand.splice(idx,1)[0];
-            card.tilted=false;
-            pl.kingdom.push(card);
-            log(`Vous posez <b>${card.name}</b>.`, 'me');
-          }
-        });
-        if(order.length) toast(`${order.length} carte(s) posée(s) !`, 900);
-      }
-      render();
-      $('mainBtn')._h && $('mainBtn').removeEventListener('click', $('mainBtn')._h);
-      $('cancelBtn')._h && $('cancelBtn').removeEventListener('click', $('cancelBtn')._h);
-      resolve();
-    }
-
-    const mainH=()=>finish(true);
-    const cancelH=()=>finish(false);
-    $('mainBtn')._h=mainH; $('cancelBtn')._h=cancelH;
-    $('mainBtn').addEventListener('click', mainH);
-    $('cancelBtn').addEventListener('click', cancelH);
-    refresh();
+    $('river').addEventListener('click',onRiver);
+    $('mainBtn').style.display=''; $('cancelBtn').style.display='none';
+    const done=()=>{
+      $('river').removeEventListener('click',onRiver);
+      $('mainBtn').removeEventListener('click',done);
+      document.querySelectorAll('#river .card').forEach(el=>el.classList.remove('buyable','tooexpensive'));
+      if(pl.gold>0) log(`${pl.gold} or non dépensé est perdu.`,'au');
+      render(); resolve();
+    };
+    $('mainBtn').addEventListener('click',done);
+    render(); refreshRiver();
   });
 }
 
 /* ---------- Phase d'expansion (IA) ---------- */
 async function aiExpansion(pl){
-  setPhasePill('Expansion — IA');
-  setPrompt(`L'IA développe son royaume…`);
-  await sleep(700);
-  // l'IA pose des cartes selon une stratégie simple liée à la difficulté
-  // Facile : pose tout sauf garde les Remparts pour défense
-  // Normale/Rusée : équilibre prestige & moteur, garde un peu de main
-  let toPlay = decideAIPlacement(pl);
-  for(const card of toPlay){
-    const idx = pl.hand.findIndex(c=>c.uid===card.uid);
-    if(idx<0) continue;
-    pl.hand.splice(idx,1);
-    card.tilted=false;
-    pl.kingdom.push(card);
-    log(`🤖 L'IA pose <b>${card.name}</b>.`, 'ai');
-    render();
-    await sleep(360);
+  setPhase('Expansion — '+pl.name);
+  setPrompt(`${pl.name} dépense son or…`);
+  await sleep(550);
+  let bought=0, guard=0;
+  while(guard++<20){
+    const choice=aiPick(pl);
+    if(!choice) break;
+    pl.gold-=choice.def.cost; choice.count--;
+    pl.kingdom.push(makeInstance(choice.def));
+    log(`🤖 ${pl.name} achète <b>${choice.def.name}</b> (−${choice.def.cost} or).`,'ai');
+    bought++; render(); await sleep(330);
   }
-  if(toPlay.length===0){ log(`🤖 L'IA ne pose rien.`, 'ai'); }
-  await sleep(300);
+  if(bought===0) log(`🤖 ${pl.name} n'achète rien.`,'ai');
+  await sleep(250);
 }
 
-function decideAIPlacement(pl){
-  const hand = pl.hand.slice();
-  if(DIFF===0){
-    // facile : pose presque tout, garde rien de spécial
-    return hand;
-  }
-  // normale/rusée : sur le dernier tour, privilégie le prestige pur (pas de moteur utile)
-  if(G.turn===TURNS){
-    // poser tout ce qui a du prestige fixe ou du scoring ; ce qui rapporte le plus
-    return hand.filter(c=>c.pp>0 || (c.def.score!=null) || c.def.effect.type==='prestige');
-  }
-  // tours 1-2 : poser le moteur (draw/prestige/tilt) et le prestige, garder peu
-  const keep = DIFF===2?1:0; // rusée garde une carte en réserve
-  const sorted = hand.slice().sort((a,b)=>(effValue(b)+b.pp)-(effValue(a)+a.pp));
-  return sorted.slice(0, Math.max(0, sorted.length-keep));
-}
-
-/* ---------- IA : choix de pioche ---------- */
-function aiChooseDraw(pl, choices, picks){
-  // estime ce qui manque à l'IA. Rusée diversifie le moteur ; sinon valeur brute.
-  const score = pile=>{
-    const def = pile.def;
-    let v = effValue({def}) + def.pp*1.5;
-    if(G.turn===TURNS) v = def.pp*2 + (def.score?3:0); // dernier tour : prestige
-    if(DIFF>=1 && def.effect.type==='draw') v += 1; // garder un moteur de pioche
-    if(DIFF>=2 && countCard(pl,pile.id)===0) v += 1.2; // diversifier
-    return v + Math.random()*0.5;
+function aiPick(pl){
+  const affordable=G.river.filter(p=>p.count>0 && p.def.cost<=pl.gold);
+  if(affordable.length===0) return null;
+  const lastTurn=G.turn===TURNS;
+  const ownGold = pl.kingdom.reduce((s,c)=>s+((c.def.eff.gold)||0),0);
+  const val=p=>{
+    const d=p.def, e=d.eff;
+    let v;
+    if(lastTurn){
+      v = d.pp*3 - d.cost*0.5;            // dernier tour : convertir en prestige
+    } else {
+      v = (e.gold||0)*3 + (e.straighten||0)*2 + (e.tilt||0)*2 + (e.steal||0)*1.5 + d.pp*1.2 - d.cost*0.4;
+      if(DIFF>=1 && ownGold<6 && (e.gold)) v+=2;          // assurer le moteur tôt
+      if(DIFF>=2 && countOwned(pl,d.id)===0) v+=1;        // rusé : diversifier
+      if(DIFF===0) v = d.pp*2 + (e.gold||0) - d.cost*0.3; // facile : vise surtout le prestige brut
+    }
+    return v + Math.random()*0.4;
   };
-  return choices.slice().sort((a,b)=>score(b)-score(a))[0];
+  const best=affordable.sort((a,b)=>val(b)-val(a))[0];
+  if(val(best) <= 0 && !lastTurn) return null;   // ne gaspille pas sur du négatif
+  return best;
 }
-
-/* ---------- Attente bouton principal ---------- */
-function waitMainBtn(label){
-  return new Promise(resolve=>{
-    $('mainBtn').textContent=label;
-    $('mainBtn').style.display='';
-    $('cancelBtn').style.display='none';
-    const h=()=>{ $('mainBtn').removeEventListener('click',h); resolve(); };
-    $('mainBtn').addEventListener('click',h);
-  });
-}
+function countOwned(pl,id){ return pl.kingdom.filter(c=>c.def.id===id).length; }
 
 /* ---------- Fin de partie ---------- */
 function endGame(){
-  G.phase='end';
-  setPhasePill('Terminé');
-  const meS = finalScore(G.me);
-  const aiS = finalScore(G.ai);
-  let title, meWin;
-  if(meS>aiS){ title='🏆 Victoire !'; meWin=true; }
-  else if(meS<aiS){ title='💀 Défaite'; meWin=false; }
-  else {
-    // égalité : le plus de cartes actives
-    const meAct = G.me.kingdom.length, aiAct = G.ai.kingdom.length;
-    if(meAct>=aiAct){ title='🏆 Victoire (égalité départagée)'; meWin=true; }
-    else { title='💀 Défaite (égalité départagée)'; meWin=false; }
-  }
-  $('endTitle').textContent = title;
+  G.phase='end'; setPhase('Terminé');
+  const ranked=G.players.slice().sort((a,b)=> score(b)-score(a) || b.kingdom.length-a.kingdom.length);
+  const top=ranked[0];
+  const meWin = top===G.me;
+  const tieMe = score(top)===score(G.me) && G.me.kingdom.length===top.kingdom.length;
+  $('endTitle').textContent = meWin?'🏆 Victoire !':(tieMe?'🤝 Égalité':'💀 Défaite');
   const sc=$('endScores'); sc.innerHTML='';
-  const mk=(name,s,cards,win)=>{
+  ranked.forEach((pl,i)=>{
     const d=document.createElement('div');
-    d.className='scoreline'+(win?' win':'');
-    d.innerHTML=`<span>${name} · ${cards} cartes</span><b>${s} 🟡</b>`;
-    return d;
-  };
-  sc.appendChild(mk('🏰 Vous', meS, G.me.kingdom.length, meWin));
-  sc.appendChild(mk('🤖 IA', aiS, G.ai.kingdom.length, !meWin));
+    d.className='scoreline'+(i===0?' win':'')+(pl===G.me?' me':'');
+    d.innerHTML=`<span>${i===0?'👑 ':''}${pl===G.me?'🏰 Vous':('🤖 '+pl.name)} · ${pl.kingdom.length} cartes</span><b>${score(pl)} 🟡</b>`;
+    sc.appendChild(d);
+  });
   $('endOverlay').style.display='flex';
-  log(`Fin de partie — Vous ${meS} / IA ${aiS}.`, 'pp');
+  log(`Fin — ${ranked.map(p=>p.name+':'+score(p)).join(' / ')}.`,'au');
 }
 
 /* ============================================================
-   UI : boutons / overlays
+   UI
    ============================================================ */
-document.querySelectorAll('#diffSeg button').forEach(b=>{
-  b.addEventListener('click',()=>{
-    document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on'); DIFF=+b.dataset.d;
-  });
-});
-$('startBtn').addEventListener('click', ()=>{ startGame(); });
-$('replayBtn').addEventListener('click', ()=>{ $('endOverlay').style.display='none'; $('startOverlay').style.display='flex'; });
-$('logBtn').addEventListener('click', ()=>{
-  const l=$('log'); l.style.display = l.style.display==='block'?'none':'block';
-});
-
-// Le bouton principal de la barre d'action lance la partie tant que l'écran
-// d'accueil est visible ; pendant le jeu il est piloté dynamiquement.
-$('mainBtn').textContent='Commencer';
-$('mainBtn').addEventListener('click', ()=>{
-  if($('startOverlay').style.display!=='none') startGame();
-});
-
-// empêcher le zoom double-tap iOS sur les boutons
-document.addEventListener('dblclick', e=>e.preventDefault(), {passive:false});
+document.querySelectorAll('#pcSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#pcSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); NUMP=+b.dataset.p;
+}));
+document.querySelectorAll('#diffSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); DIFF=+b.dataset.d;
+}));
+$('startBtn').addEventListener('click',startGame);
+$('replayBtn').addEventListener('click',()=>{ $('endOverlay').style.display='none'; $('startOverlay').style.display='flex'; });
+$('logBtn').addEventListener('click',()=>{ const l=$('log'); l.style.display=l.style.display==='block'?'none':'block'; });
+$('mainBtn').addEventListener('click',()=>{ if($('startOverlay').style.display!=='none') startGame(); });
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 </script>
 </body>
 </html>
