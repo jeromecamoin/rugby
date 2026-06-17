@@ -170,8 +170,8 @@ function fire(){
   const a=Math.atan2(player.fy,player.fx);
   const sx=player.x+Math.cos(a)*22, sy=player.y+Math.sin(a)*22;
   bullets.push({ x:sx,y:sy, vx:Math.cos(a)*620, vy:Math.sin(a)*620, life:1.1, letter:rl(), trail:[] });
-  // fumee qui masque
-  for(let i=0;i<10;i++) smoke.push({ x:sx,y:sy, vx:Math.cos(a)*40+(Math.random()-.5)*40, vy:Math.sin(a)*40+(Math.random()-.5)*40, life:0.9+Math.random()*0.5, r:8+Math.random()*10 });
+  // "fumee" = volute de glyphes (aucun effet realiste : DA Regle 6)
+  for(let i=0;i<10;i++) smoke.push({ x:sx,y:sy, vx:Math.cos(a)*40+(Math.random()-.5)*40, vy:Math.sin(a)*40+(Math.random()-.5)*40, life:0.9+Math.random()*0.5, sz:12+Math.random()*12, c:rl(), rot:(Math.random()-.5)*1.5 });
   shakeT=0.12; shake=4;
   beep(180,0.05,0.25);
 }
@@ -281,7 +281,7 @@ function update(dt){
     }
   }
   bullets=bullets.filter(b=>b.life>0 && b.x>cam.x-50 && b.x<cam.x+W+50 && b.y>cam.y-50 && b.y<cam.y+H+50);
-  smoke.forEach(s=>{ s.x+=s.vx*dt; s.y+=s.vy*dt; s.life-=dt; s.r+=14*dt; });
+  smoke.forEach(s=>{ s.x+=s.vx*dt; s.y+=s.vy*dt; s.vx*=0.95; s.vy*=0.95; s.life-=dt; s.sz+=10*dt; });
   smoke=smoke.filter(s=>s.life>0);
   shards.forEach(s=>{ s.x+=s.vx*dt; s.y+=s.vy*dt; s.vx*=0.92; s.vy*=0.92; s.life-=dt; });
   shards=shards.filter(s=>s.life>0);
@@ -406,8 +406,13 @@ function draw(){
     ctx.globalAlpha=1; ctx.fillStyle=COL.white; ctx.font='bold 16px Georgia'; ctx.fillText(b.letter,wx(b.x),wy(b.y));
   }
 
-  // smoke
-  for(const s of smoke){ ctx.globalAlpha=Math.max(0,s.life*0.5); ctx.fillStyle='#d8d2c4'; ctx.beginPath(); ctx.arc(wx(s.x),wy(s.y),s.r,0,7); ctx.fill(); }
+  // "fumee" typographique : glyphes blackletter qui se dispersent
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(const s of smoke){
+    ctx.globalAlpha=Math.max(0,s.life*0.55);
+    ctx.fillStyle=COL.bone; ctx.font=s.sz+'px Georgia';
+    ctx.save(); ctx.translate(wx(s.x),wy(s.y)); ctx.rotate(s.rot); ctx.fillText(s.c,0,0); ctx.restore();
+  }
   ctx.globalAlpha=1;
 
   // ---- player (medecin de peste) ----

@@ -10,7 +10,7 @@
 
 Le temps est la ressource centrale. Tout le design tourne autour d'une seule tension : **explorer vite mais incomplet, ou rester et se corrompre.**
 
-**Univers & cadre.** Un voyageur arrive dans un **village de Toscane** dévasté par la peste, et doit atteindre puis **gravir le château du Prince Prospero**. Chaque étage du château se termine par une **chambre de couleur** (les sept salles de la nouvelle de Poe) qui, une fois sa **Mort de couleur** vaincue, ouvre l'escalier vers l'étage suivant — jusqu'à la chambre noire aux vitraux écarlates et la **Mort Rouge**. La structure complète est en §1.0 et §1.5.
+**Univers & cadre.** Un médecin de peste arrive dans une **cité médiévale de Toscane** dévorée par une **infection sentiente d'encre et d'Écriture** — une peste qui ne ronge pas seulement les corps mais *réécrit* le réel : rues de script gothique, murs d'enluminures, habitants qui se délitent en glyphes (voir la DA, §4). Il doit traverser cette ville, atteindre puis **gravir le château du Prince Prospero**. Chaque étage du château se termine par une **chambre de couleur** (les sept salles de la nouvelle de Poe) qui, une fois sa **Mort de couleur** vaincue, ouvre l'escalier vers l'étage suivant — jusqu'à la chambre noire aux vitraux écarlates et la **Mort Rouge**, puis l'atelier de **Prospero**. La structure complète est en §1.0 et §1.5.
 
 ---
 
@@ -283,15 +283,24 @@ Le véritable antagoniste : l'**Auteur de la peste**. Contrairement à la Mort R
 
 ## 4. DIRECTION ARTISTIQUE
 
-L'identité visuelle = **monde isométrique crédible + calligraphie comme matière vivante**. Le risque n°1 est le **chaos illisible**. La DA se définit donc autant par ses **règles de retenue** que par ses effets.
+**Pitch DA (one-liner) :** *RED DEATH — action dark fantasy isométrique inspirée du* Masque de la Mort Rouge *de Poe : un monde de calligraphie gothique vivante, où la réalité est faite de typographie blackletter, et où un médecin de peste en combinaison qui se dégrade explore une cité médiévale dévorée par une infection sentiente d'encre et d'Écriture.*
 
-### 4.1 Le concept fondateur : « Le monde s'écrit / se corrompt en temps réel »
+L'identité visuelle = **monde isométrique + typographie blackletter comme matière même de la réalité**. Référence radicale : **rien n'est réaliste**. Pas de particules, pas de sang, pas de fumée réalistes — *tout* effet est typographique. Le risque n°1 est le **chaos illisible** ; la DA se définit donc autant par ses **règles de retenue** que par ses effets. (Le prompt de génération de référence est conservé en **Annexe B**.)
 
-La typographie n'est **pas un filtre par-dessus** le jeu : c'est **la substance de la peste**. Règle narrative interne :
+**Registre visuel — mélange revendiqué :** gravure médiévale sur bois (woodcut), enluminures de manuscrits, esthétique ASCII art, calligraphie blackletter, illustration à l'encre, design graphique. Stylisé, graphique, symbolique, **surréaliste** ; envoûtant et poétique **plutôt que réaliste**.
 
-> *La Mort Rouge n'est pas un virus, c'est un texte. Elle contamine en s'écrivant sur le monde et sur les corps. Et tout texte a un auteur : le Prince Prospero.*
+### 4.1 Le concept fondateur : « La réalité est faite d'écriture, et l'écriture est vivante »
+
+La typographie n'est **pas un filtre par-dessus** le jeu : c'est **la substance même du monde et de la peste**. La cité, ses pierres, ses habitants, la maladie — tout est *écrit*. L'infection est une **encre sentiente, une Écriture consciente** qui se propage en s'inscrivant. Règle narrative interne :
+
+> *La Mort Rouge n'est pas un virus, c'est un texte vivant. Elle contamine en s'écrivant sur le monde et sur les corps. Et tout texte a un auteur : le Prince Prospero.*
 
 Cela justifie diégétiquement chaque effet typographique → cohérence totale. Le boss final (§1.6) est la **main qui écrit** : la peste a une source nommée, et c'est elle qu'on affronte au sommet.
+
+**Conséquences directes sur le monde (worldbuilding typographique) :**
+- **Personnages** partiellement composés de lettres et de symboles (plus ils sont corrompus, plus la chair cède la place au glyphe).
+- **Architecture** taillée dans des enluminures ; **rues et ruelles** bâties de couches denses de script gothique.
+- **Typographie organique** qui pousse comme des racines et des veines à travers murs, sols et corps.
 
 ### 4.2 Règles visuelles pour éviter le chaos (le plus important)
 
@@ -304,22 +313,35 @@ Cela justifie diégétiquement chaque effet typographique → cohérence totale.
 
 **Règle 3 — Lisibilité gameplay > beauté.** Les zones de jeu critiques (chemins, ennemis, loot) restent **dégagées**. La calligraphie envahit les **surfaces** (murs, plafonds, fonds), pas les **volumes jouables** tant que la contamination est basse. Elle n'empiète sur la zone jouable **qu'à dessein**, comme pénalité de haute contamination.
 
-**Règle 4 — Palette restreinte et symbolique :**
-- **Noir** (encre) = corruption, texte de la peste.
-- **Rouge pourpre** = la Mort Rouge, le danger ultime, le sang.
-- **Or fané / ivoire** = l'aristocratie, le luxe malade, les zones sûres.
-- **Blanc froid** = le joueur, sa lumière, ses tirs (pureté assiégée).
-> 4 couleurs. Toute la dramaturgie tient dans le **ratio noir/rouge vs or/blanc** à l'écran : plus c'est envahi de noir et rouge, plus le danger est grand. La DA *est* le HUD.
+**Règle 4 — Palette restreinte (4 encres) :**
+- **Encre noire** (black ink) = corruption, texte de la peste, traits.
+- **Ivoire parchemin** (parchment ivory) = le support, les zones saines, le joueur, la lumière.
+- **Sépia sombre** (dark sepia) = l'ancien, le manuscrit, l'architecture enluminée, les tons moyens.
+- **Cramoisi profond** (deep crimson) = la Mort Rouge, le danger ultime, le sang-encre.
+> 4 encres seulement. Toute la dramaturgie tient dans le **ratio noir/cramoisi vs ivoire/sépia** à l'écran : plus c'est envahi de noir et de cramoisi, plus le danger est grand. **La DA *est* le HUD.** (Note : on quitte le « or + blanc froid » aristocratique au profit d'un registre **parchemin/encre/sépia** de manuscrit médiéval, plus chaud et plus cohérent avec les enluminures et le woodcut. Les couleurs des sept chambres restent des *accents* locaux par-dessus ces 4 encres.)
 
 **Règle 5 — Le calme rend le chaos lisible.** Les espaces sûrs sont **typographiquement silencieux** (texte gravé, immobile). Le contraste fait que l'invasion typographique frappe d'autant plus fort.
 
-### 4.3 Intégration concrète de la calligraphie
+**Règle 6 — Zéro réalisme : tout effet est un glyphe.** Aucune particule, aucun sang, aucune fumée réalistes. Chaque effet de jeu a une **forme typographique** dédiée (voir §4.3). C'est la règle d'or de l'identité : si à l'écran un effet *pourrait exister dans un autre jeu*, il est faux. Tout doit pouvoir « se lire ».
 
-- **Tirs** : la balle laisse une **traînée d'une seule lettre/mot** stylisé (ex. trait qui « écrit » sa trajectoire), nette et blanche → lisible, pas brouillon.
-- **Impacts** : à l'impact, la trace se **fragmente en éclats typographiques** qui retombent et s'effacent vite (≤ 0,5 s) → satisfaction sans pollution.
-- **Contamination de surface** : sur les murs, du texte noir **croît comme du lierre** (croissance procédurale lente). Densité = niveau de contamination locale.
-- **Ennemis-texte** (Murmures) : faits *de* calligraphie en mouvement → cohérence parfaite menace/forme.
-- **Environnement** : inscriptions latines/françaises fanées sur le marbre (vers de Poe, épitaphes), **immobiles** = patrimoine du lieu, pas une menace. Distinction nette d'avec le texte vivant.
+### 4.3 Lexique des effets — tout devient typographie (table de correspondance)
+
+Chaque effet « classique » d'un jeu d'action est **remplacé** par un équivalent typographique. C'est la table de référence pour l'art et le VFX :
+
+| Effet classique | Devient (RED DEATH) | Note de lisibilité |
+|---|---|---|
+| Tir d'arme à feu | **Flux de glyphes blackletter** projetés (l'arquebuse « crache » des lettres gothiques violentes) | Une lettre-tête nette + traînée brève → lecture de la trajectoire |
+| Explosion | **Fragments calligraphiques éclatés** qui retombent et s'effacent (≤ 0,5 s) | Éclats sépia/noir, pas de flash réaliste |
+| Sang / blessure infectée | **Gerbes d'enluminure qui coulent** (traits de manuscrit illuminé, cramoisi) | Réservé aux corps infectés → signale la contamination |
+| Fumée / souffle | **Volutes de glyphes** qui se dispersent (jamais de nuage gris réaliste) | Peut masquer brièvement, mais reste « lisible » |
+| Mèche / feu qui brûle | **Script médiéval incandescent** qui court le long de la mèche | Tension de l'allumage rendue par le texte qui « s'écrit » |
+| Contamination ambiante | **Typographie rampante** qui se propage sur murs, sols et rues comme racines/veines | Densité = niveau de contamination locale |
+| Impact de surface | **Empreinte de lettre brûlée** dans le décor | S'estompe → ne pollue pas durablement |
+
+**Autres principes d'intégration :**
+- **Ennemis-texte** (Murmures) : faits *de* blackletter en mouvement → cohérence parfaite menace/forme. Les Conviés gardent une silhouette lisible, mais leur chair se **délite en glyphes** quand on les frappe.
+- **Inscriptions gravées** (immobiles) : vers de Poe, épitaphes, prières dans le marbre/parchemin = **patrimoine du lieu, pas une menace**. La distinction mouvement/immobilité (Règle 2) reste sacrée.
+- **Silhouettes fortes & formes de gameplay lisibles** malgré la densité typographique : c'est le défi majeur de prod (cf. §5.4, risque technique n°1). On teste tôt la lisibilité en iso.
 
 ### 4.4 Exemples de scènes fortes
 
@@ -385,17 +407,64 @@ Aucun shooter d'exploration ne fait de la **typographie la mécanique ET l'esth�
 
 ---
 
-## ANNEXE — Carte des cohérences (gameplay ⇄ esthétique)
+## ANNEXE A — Carte des cohérences (gameplay ⇄ esthétique)
 
 | Pilier | Système (gameplay) | Traduction esthétique | Fidélité Poe |
 |---|---|---|---|
-| Tension temporelle | Jauge de contamination | Texte qui envahit l'écran | « Le Temps fuit » / Horloge d'Ébène |
-| Risque du combat | Reload long de l'arquebuse | Fumée qui masque, traînée de lettres | Danger feutré, aristocratique |
-| Progression / variété | Ascension des 7 chambres (1 mécanique + 1 boss par couleur) | Calligraphie teintée de la couleur de l'étage | Les sept salles du château de Prospero |
-| Survie / loot | Anneaux de profondeur dans chaque étage | Ratio noir-rouge / or-blanc | Le luxe malade, les Conviés |
-| Vulnérabilité | Combinaison qui se dégrade | Calligraphie qui s'écrit sur la peau | Le médecin de peste, le masque |
-| Mortalité inéluctable | La Mort Rouge (avant-dernier boss, non tuable) | Présence rouge pourpre, vitraux écarlates | « Et la Mort Rouge régna sans partage » |
+| Tension temporelle | Jauge de contamination | Typographie qui envahit l'écran | « Le Temps fuit » / Horloge d'Ébène |
+| Risque du combat | Reload long de l'arquebuse | Volutes de glyphes, flux de blackletter | Danger feutré, aristocratique |
+| Progression / variété | Ascension des 7 chambres (1 mécanique + 1 boss par couleur) | Encre teintée de l'accent de couleur de l'étage | Les sept salles du château de Prospero |
+| Survie / loot | Anneaux de profondeur dans chaque étage | Ratio noir-cramoisi / ivoire-sépia | Le luxe malade, les Conviés |
+| Vulnérabilité | Combinaison qui se dégrade | La chair qui se délite en glyphes | Le médecin de peste, le masque |
+| Mortalité inéluctable | La Mort Rouge (avant-dernier boss, non tuable) | Présence cramoisi, vitraux écarlates | « Et la Mort Rouge régna sans partage » |
 | L'auteur de la peste | Prospero (boss final, duel d'auteur) | La main qui écrit le monde ; l'Horloge d'Ébène | Le Prince orgueilleux qui se croyait maître de la mort |
+
+---
+
+## ANNEXE B — Prompt maître de direction artistique (concept art / vis dev)
+
+> Prompt de référence pour la génération d'images de développement visuel (concept art sheets, exploration de DA). À conserver tel quel et à décliner par chambre/scène.
+
+```
+RED DEATH, isometric dark fantasy action game inspired by Edgar Allan Poe's
+The Masque of the Red Death, living gothic calligraphy world, reality made of
+blackletter typography, plague doctor explorer wearing a deteriorating
+protective suit, medieval city consumed by a sentient infection of ink and
+scripture.
+
+No realistic particles, no realistic blood, no realistic smoke.
+
+Gunfire erupts into violent gothic letters, arquebus shots become streams of
+blackletter glyphs, explosions are shattered calligraphic fragments, infected
+blood sprays as flowing illuminated manuscript strokes, burning fuses
+transform into glowing medieval script, contamination spreads through crawling
+typography across walls and streets.
+
+Characters partially composed of letters and symbols, architecture carved from
+illuminated manuscripts, streets built from dense layers of gothic script,
+organic typography growing like roots and veins.
+
+Stylized, graphic, symbolic, surreal.
+
+Mix of medieval woodcut engraving, illuminated manuscripts, ASCII art
+aesthetics, blackletter calligraphy, ink illustration, graphic design, game
+concept art.
+
+Limited color palette: black ink, parchment ivory, dark sepia, deep crimson.
+
+Strong silhouettes, readable gameplay shapes, isometric perspective.
+
+Unique visual identity, experimental typography-based worldbuilding, haunting
+and poetic rather than realistic.
+
+masterpiece concept art sheet, art direction exploration, video game visual
+development.
+```
+
+**Déclinaisons suggérées (à partir de ce socle) :**
+- *Par chambre* : ajouter l'accent de couleur (« deep blue accent, drowned manuscript, rising waters of ink » pour la Chambre Bleue, etc.).
+- *Par sujet* : « character sheet, plague doctor, deteriorating suit, beaked mask » / « enemy sheet, the Convives, masked aristocrats dissolving into glyphs » / « boss sheet, Prospero the Author at his writing desk inside the Ebony Clock ».
+- *Tenir les garde-fous* : toujours « readable gameplay shapes, isometric perspective, limited palette (black ink, parchment ivory, dark sepia, deep crimson) » pour rester cohérent.
 
 ---
 
