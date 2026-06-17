@@ -23,6 +23,7 @@ Le jeu suit un **fil narratif et spatial unique** : un voyageur arrive dans un *
 ```
 VILLAGE DE TOSCANE (prologue / hub initial)
    └─ Peste, ruines, premiers indices, équipement de départ
+      Le village que Prospero a abandonné à la peste pour se murer.
       ↓
 PORTES DU CHÂTEAU DE PROSPERO
       ↓
@@ -35,11 +36,15 @@ PORTES DU CHÂTEAU DE PROSPERO
       └─ BOSS : la MORT de cette couleur
       └─ Vaincre la Mort = l'escalier vers l'étage suivant s'ouvre
       ↓
-SOMMET : la CHAMBRE NOIRE aux vitraux écarlates
-   └─ Affrontement final avec la MORT ROUGE
+7e CHAMBRE — la CHAMBRE NOIRE aux vitraux écarlates
+   └─ AVANT-DERNIER BOSS : la MORT ROUGE
+      (le chef-d'œuvre / l'invité masqué ; on la vainc, le masque tombe…)
+      ↓
+SOMMET CACHÉ : l'ATELIER / la TOUR DE L'HORLOGE D'ÉBÈNE
+   └─ BOSS FINAL : le PRINCE PROSPERO — l'Auteur de la peste
 ```
 
-**Les sept chambres reprennent les sept salles de la nouvelle de Poe** (bleu, pourpre, vert, orange, blanc, violet, noir), d'est en ouest chez Poe, ici de bas en haut. Voir la **section 1.5** pour le détail de chaque chambre.
+**Les sept chambres reprennent les sept salles de la nouvelle de Poe** (bleu, pourpre, vert, orange, blanc, violet, noir), d'est en ouest chez Poe, ici de bas en haut. La **Mort Rouge** clôt la 7e chambre (avant-dernier boss) ; le **véritable antagoniste, Prospero**, attend au sommet (boss final). Voir **§1.5** pour les chambres et **§3.3** pour le design des deux boss finaux.
 
 **Principe d'or :** la progression ne se gagne pas par le combat de masse, elle se gagne par la **gestion du risque temporel** dans chaque étage, puis par la **maîtrise de la mécanique unique** de la chambre. Le joueur n'est jamais « bloqué par un mur d'ennemis » ; il est pressé par sa propre jauge, puis testé par un duel thématique.
 
@@ -100,13 +105,35 @@ Le cœur structurel du jeu. Chaque étage culmine dans une chambre dont la **cou
 | 4 | **Orange** (les feux / la forge) | Braseros, fonte, lumière incandescente | **Le feu** : on peut enflammer (la mèche de l'arquebuse prend tout son sens), mais le feu se propage et **accélère la contamination** ; manier l'incendie sans s'y prendre | **La Mort Orange** : incandescente, sème des brasiers et des traînées — la noyer/l'éteindre, exploiter les zones déjà brûlées comme refuge |
 | 5 | **Blanche** (l'ossuaire / le silence) | Os, marbre, lumière aveuglante, silence | **La privation sensorielle** : aveuglement blanc, on s'oriente au **son** (pas, respiration, calligraphie qui chuchote) | **La Mort Blanche** : silencieuse, invisible quand on la fixe, frappe dans l'angle mort — la « lire » à l'oreille et au texte qu'elle laisse |
 | 6 | **Violette** (le délire) | Couleur de la folie, perceptions trompées | **L'hallucination** : faux ennemis, faux loot, faux murs (reprise de l'effet de contamination haute) ; douter de tout ce qu'on voit | **La Mort Violette** : illusionniste, se démultiplie en leurres — distinguer la vraie au comportement, pas à l'apparence |
-| 7 | **Noire** aux vitraux écarlates (la fin) | La chambre que nul n'osait habiter, l'Horloge d'Ébène | **La synthèse** : toutes les mécaniques combinées, aucune soupape, l'Horloge scande des phases ; rien n'est sûr | **LA MORT ROUGE** : boss final, **non « tuable » au sens classique** — il faut survivre/désamorcer ses phases au lieu de la vaincre de front (voir §3.3 et §5) |
+| 7 | **Noire** aux vitraux écarlates (la fin) | La chambre que nul n'osait habiter, l'Horloge d'Ébène | **La synthèse** : toutes les mécaniques combinées, aucune soupape, l'Horloge scande des phases ; rien n'est sûr | **LA MORT ROUGE** : *avant-dernier* boss, **non « tuable » au sens classique** — on survit/désamorce ses phases ; la vaincre fait tomber son masque et ouvre la voie à Prospero (voir §3.3) |
+| 8 | **L'Atelier / la Tour de l'Horloge** (le sommet caché) | Le scriptorium du Prince au cœur de l'Horloge d'Ébène ; encre, manuscrits, vitraux écarlates | **Le duel d'auteur** : Prospero réécrit l'arène en temps réel, convoque des échos des Morts de couleur, retourne la calligraphie contre vous | **LE PRINCE PROSPERO** : *boss final*, l'Auteur de la peste — un vrai combat à phases (voir §3.3 et le lore en §1.6) |
 
 **Notes de design :**
-- **Sept couleurs, sept verbes** : lumière, foule/discrétion, envahissement, feu, son, illusion, synthèse. Aucun étage ne se joue comme un autre → variété garantie sans multiplier les systèmes (chaque verbe réutilise des briques existantes : contamination, lanterne, mèche, audio).
-- **Courbe de difficulté = l'ordre des couleurs de Poe.** Le bleu (est, l'aube) introduit ; le noir (ouest, le couchant/la mort) conclut. La progression spatiale *est* la courbe dramatique.
-- **Le village de Toscane** sert de prologue jouable (apprentissage des bases : déplacement, lanterne, arquebuse, première montée de contamination) avant la première chambre — pas un simple menu.
-- **Production :** un boss par étage est ambitieux. Pour un vertical slice, prototyper **2 chambres contrastées** (ex. Bleue = lumière/eau, et Verte = envahissement/contamination) + la Mort Rouge, afin de prouver la formule « mécanique unique + Mort de couleur ».
+- **Sept couleurs, sept verbes + un finale d'auteur** : lumière, foule/discrétion, envahissement, feu, son, illusion, synthèse — puis Prospero qui *réutilise tout* contre le joueur. Aucun étage ne se joue comme un autre → variété garantie sans multiplier les systèmes (chaque verbe réutilise des briques existantes : contamination, lanterne, mèche, audio).
+- **Courbe de difficulté = l'ordre des couleurs de Poe.** Le bleu (est, l'aube) introduit ; le noir (ouest, le couchant/la mort) est le climax thématique (Mort Rouge) ; l'atelier est le climax *dramatique* (Prospero). La progression spatiale *est* la courbe dramatique.
+- **Le village de Toscane** sert de prologue jouable (apprentissage des bases : déplacement, lanterne, arquebuse, première montée de contamination) avant la première chambre — pas un simple menu. C'est aussi le crime de Prospero rendu concret : le peuple qu'il a sacrifié.
+- **Production :** un boss par étage est ambitieux. Pour un vertical slice, prototyper **2 chambres contrastées** (ex. Bleue = lumière/eau, et Verte = envahissement/contamination) + un boss final lisible. La Mort Rouge et Prospero sont les morceaux de bravoure de fin de production.
+
+### 1.6 LORE — Pourquoi Prospero est l'antagoniste
+
+Chez Poe, Prospero n'est pas un « méchant » : c'est l'aristocrate orgueilleux qui se mure avec mille nobles pour fuir la peste, et que la Mort Rouge rattrape quand même. Pour en faire un **boss final** crédible — et non un simple lâche — on lui donne une **volonté et une faute** sans trahir la nouvelle.
+
+**Le pitch :** *Prospero n'a pas seulement fui la Mort Rouge. Il a voulu l'écrire.*
+
+- Terrifié par la mort, le Prince a cherché à la **maîtriser en l'écrivant** : faire de la peste une œuvre qu'il dicterait, une mort dont *il* serait l'auteur, donc le maître. C'est le sens de la peste-texte du jeu (cf. §4.1) : **Prospero est le calligraphe, la Mort Rouge est son chef-d'œuvre, les Morts de couleur sont ses brouillons.**
+- Son bal masqué et son château scellé ne sont pas une cachette : c'est son **atelier**, et sa cour les **premiers lecteurs/cobayes** de son œuvre. La peste lui a échappé et a tout dévoré — mais lui s'accroche, drapé dans l'illusion de contrôle, à réécrire encore.
+- **Le village de Toscane** (le prologue) est sa faute incarnée : le peuple qu'il a abandonné à la peste pour parfaire son art. Le héros vient *de ce village* — la conséquence qui remonte jusqu'à l'auteur.
+
+**Pourquoi cet ordre des deux boss fonctionne :**
+- La **Mort Rouge** (avant-dernier) est le climax *attendu* : l'invité masqué, la peste incarnée, la synthèse de toutes les mécaniques. On ne la « tue » pas vraiment — on la **survit** et on lui **arrache son masque**. Sous le masque : le vide, ou la marque de la main qui l'a écrite → révélation qu'il y a un **auteur** au-dessus.
+- **Prospero** (final) est le climax *dramatique* : le vrai responsable, doté de motif et de volonté, donc un **vrai combat cathartique** qu'on gagne. Vaincre l'auteur = la plume s'arrête, le monde cesse de s'écrire. Le joueur passe de « endurer la mort » à « faire répondre l'homme qui l'a déchaînée ».
+
+> **Cohérence totale :** le pilier « le monde s'écrit/se corrompt en temps réel » trouve enfin son sujet. Quelqu'un *écrit* le monde — et le boss final, c'est lui. Lore, DA et structure des boss se verrouillent en une seule idée.
+
+**Variantes de ton possibles (à trancher) :**
+- **(A) Prospero l'Auteur** *(recommandé, intégré ci-dessus)* : artiste-tyran qui a écrit la peste pour dominer la mort. Maximise la cohérence avec la DA typographique.
+- **(B) Prospero la Relique** : il n'a rien écrit ; à force de fuir la mort, il a refusé de mourir et s'est fondu au château — un boss « refus de la mort », hubris pur. Plus simple, moins lié à la calligraphie.
+- **(C) Le doute** : et si la Mort Rouge *était* Prospero, ou son reflet ? Garder une ambiguïté finale (le combat contre Prospero a des échos de la Mort Rouge). Plus risqué narrativement.
 
 ---
 
@@ -231,10 +258,20 @@ Chaque étage culmine sur une Mort de couleur dont le combat **exploite la méca
 | **La Mort Blanche** | Blanche | La localiser au son, frapper dans l'angle mort |
 | **La Mort Violette** | Violette | Identifier la vraie au comportement, ignorer les leurres |
 
-**Le boss final : LA MORT ROUGE** (chambre noire, §1.5).
-On ne la « tue » pas au sens classique — fidèle à Poe, *nul n'échappe à la Mort Rouge*. Le combat consiste à **survivre et désamorcer ses phases**, scandées par l'Horloge d'Ébène, en mobilisant tout ce que les six chambres ont enseigné. Sa présence peut aussi se manifester en amont comme **héraut/pression** (apparitions fugaces dans les étages quand la contamination est haute), pour installer la menace avant le duel final.
+**L'avant-dernier boss : LA MORT ROUGE** (chambre noire, §1.5).
+On ne la « tue » pas au sens classique — fidèle à Poe, *nul n'échappe à la Mort Rouge*. Le combat consiste à **survivre et désamorcer ses phases**, scandées par l'Horloge d'Ébène, en mobilisant tout ce que les six chambres ont enseigné. Sa présence se manifeste aussi en amont comme **héraut/pression** (apparitions fugaces dans les étages quand la contamination est haute), pour installer la menace avant le duel. La vaincre **fait tomber son masque** : sous le tissu, le vide — et la signature de la main qui l'a écrite. Révélation qu'il y a un **auteur** au-dessus. C'est un combat d'**endurance** (on subit la mort), volontairement non cathartique : il appelle une suite.
 
-> **La Mort Rouge** fusionne le système de jauge et la menace physique : elle *est* la contamination incarnée. C'est l'idée de boss la plus forte du jeu, et l'aboutissement logique de l'ascension.
+> **La Mort Rouge** fusionne le système de jauge et la menace physique : elle *est* la contamination incarnée. Mais elle n'est qu'une **œuvre** — pas une volonté. D'où la nécessité d'un boss final qui, lui, *a* une volonté.
+
+**LE BOSS FINAL : LE PRINCE PROSPERO** (l'atelier / la tour de l'Horloge, §1.5 chambre 8 ; lore en §1.6).
+Le véritable antagoniste : l'**Auteur de la peste**. Contrairement à la Mort Rouge, c'est un **vrai combat qu'on gagne** — cathartique, à phases, qui boucle l'ascension.
+
+- **Concept de combat — « le duel d'auteur » :** Prospero **réécrit l'arène en temps réel**. La calligraphie n'est plus un décor de menace, c'est son arme directe : il efface le sol et le réécrit ailleurs, change les règles de la salle, fait pleuvoir le texte.
+- **Phases en rappel (callback) :** chaque phase **convoque l'écho d'une Mort de couleur** et donc sa mécanique — il rallume puis éteint la lumière (Bleue), invoque une foule de Conviés (Pourpre), fait croître le décor (Verte), embrase (Orange), impose le silence (Blanche), se démultiplie en leurres (Violette). Le combat final est l'**examen** de tout ce que le joueur a appris : il faut réappliquer chaque solution, à la chaîne.
+- **Le point faible, c'est la plume :** Prospero est invulnérable tant qu'il écrit ; il faut interrompre son geste (toucher sa main/sa plume/son encrier pendant qu'il « rédige » une attaque, idéalement avec un tir d'arquebuse parfaitement minuté → le système de reload trouve son apogée). L'interrompre le rend vulnérable une fenêtre.
+- **Issue :** le vaincre = **la plume s'arrête, le monde cesse de s'écrire**. La calligraphie reflue de tout le château. Catharsis et résolution thématique.
+
+> **Pourquoi deux boss finaux dans cet ordre :** la Mort Rouge est le climax *attendu* et *thématique* (la peste, qu'on ne peut que survivre) ; Prospero est le climax *dramatique* et *ludique* (le coupable, qu'on peut enfin abattre). On passe d'« endurer la mort » à « faire répondre l'homme qui l'a déchaînée ». Voir §1.6.
 
 ### 3.4 Règles d'équité
 
@@ -252,9 +289,9 @@ L'identité visuelle = **monde isométrique crédible + calligraphie comme mati�
 
 La typographie n'est **pas un filtre par-dessus** le jeu : c'est **la substance de la peste**. Règle narrative interne :
 
-> *La Mort Rouge n'est pas un virus, c'est un texte. Elle contamine en s'écrivant sur le monde et sur les corps.*
+> *La Mort Rouge n'est pas un virus, c'est un texte. Elle contamine en s'écrivant sur le monde et sur les corps. Et tout texte a un auteur : le Prince Prospero.*
 
-Cela justifie diégétiquement chaque effet typographique → cohérence totale.
+Cela justifie diégétiquement chaque effet typographique → cohérence totale. Le boss final (§1.6) est la **main qui écrit** : la peste a une source nommée, et c'est elle qu'on affronte au sommet.
 
 ### 4.2 Règles visuelles pour éviter le chaos (le plus important)
 
@@ -298,6 +335,12 @@ Quand le joueur retire sa combinaison (choix §2.2), la caméra se rapproche un 
 **Scène 4 — « L'ouverture de l'escalier ».**
 À la mort d'une Mort de couleur, le silence retombe ; la calligraphie de la chambre se **fige puis se rétracte**, révélant l'escalier vers l'étage suivant qui s'illumine. Moment de catharsis et de répit, contraste fort avec la tension du duel — la récompense émotionnelle de l'ascension.
 
+**Scène 5 — « Le démasquage de la Mort Rouge » (la bascule vers le boss final).**
+La Mort Rouge vaincue s'effondre ; le joueur s'approche et arrache le masque… il n'y a **personne** dessous, seulement le costume qui retombe à plat — et, tracée à l'encre fraîche à l'intérieur du masque, une **signature** qui se met à briller. Le plafond de la chambre noire s'ouvre alors sur un escalier qu'on n'avait pas vu, montant vers l'atelier. Révélation muette : ce n'était qu'une œuvre, et l'auteur est au-dessus. Fidèle au texte de Poe (le costume vide) tout en ouvrant le vrai final.
+
+**Scène 6 — « Le scriptorium de Prospero » (boss final).**
+Une tour au cœur de l'Horloge d'Ébène : manuscrits, encriers, vitraux écarlates, le Prince à son pupitre qui **n'a jamais cessé d'écrire**. À mesure du combat il rature le sol sous vos pieds, réécrit les murs, rappelle les couleurs des six chambres. Quand sa plume se brise, toute la calligraphie du château **reflue vers lui puis s'éteint** — le monde cesse enfin de s'écrire.
+
 ---
 
 ## 5. IDÉES FORTES & DIFFÉRENCIATION
@@ -316,8 +359,8 @@ Aucun shooter d'exploration ne fait de la **typographie la mécanique ET l'esth�
 2. **Les sept chambres, sept verbes, sept Morts de couleur** (§1.5)
    Une ascension où chaque étage se joue différemment et culmine sur un duel thématique fidèle à Poe. Variété intégrée au level design, sans surcharge de systèmes.
 
-3. **La Mort Rouge comme aboutissement incarné** (§3.3)
-   Boss final qu'on ne tue pas mais qu'on survit ; en amont, présence/héraut qui *est* ta contamination. Fusion mécanique/fiction.
+3. **Le double final : la Mort Rouge puis Prospero l'Auteur** (§1.6 / §3.3)
+   Avant-dernier boss qu'on *survit* (la peste incarnée, fidèle à Poe), puis vrai boss final qu'on *abat* : le Prince qui a écrit la peste. Le combat d'auteur rejoue toutes les mécaniques des chambres. Twist narratif (le masque vide → la signature → l'atelier) qui transforme un hommage en récit.
 
 4. **Le texte comme danger lisible** (§4.2)
    Apprendre à « lire » la pièce — littéralement. Le langage visuel devient une compétence de survie. Skill ceiling unique.
@@ -351,8 +394,9 @@ Aucun shooter d'exploration ne fait de la **typographie la mécanique ET l'esth�
 | Progression / variété | Ascension des 7 chambres (1 mécanique + 1 boss par couleur) | Calligraphie teintée de la couleur de l'étage | Les sept salles du château de Prospero |
 | Survie / loot | Anneaux de profondeur dans chaque étage | Ratio noir-rouge / or-blanc | Le luxe malade, les Conviés |
 | Vulnérabilité | Combinaison qui se dégrade | Calligraphie qui s'écrit sur la peau | Le médecin de peste, le masque |
-| Mortalité inéluctable | La Mort Rouge (boss final non tuable) | Présence rouge pourpre, vitraux écarlates | « Et la Mort Rouge régna sans partage » |
+| Mortalité inéluctable | La Mort Rouge (avant-dernier boss, non tuable) | Présence rouge pourpre, vitraux écarlates | « Et la Mort Rouge régna sans partage » |
+| L'auteur de la peste | Prospero (boss final, duel d'auteur) | La main qui écrit le monde ; l'Horloge d'Ébène | Le Prince orgueilleux qui se croyait maître de la mort |
 
 ---
 
-*Tout dans ce document tient à une seule idée : le joueur lutte contre le temps qui s'écrit. Le gameplay le mesure, l'arme le ralentit, la DA le montre, l'ascension des sept chambres le met en scène, et la Mort Rouge le clôt — au sommet du château de Prospero, là où nul n'échappe à la Mort Rouge.*
+*Tout dans ce document tient à une seule idée : le joueur lutte contre le temps qui s'écrit. Le gameplay le mesure, l'arme le ralentit, la DA le montre, l'ascension des sept chambres le met en scène, la Mort Rouge en est le chef-d'œuvre — et Prospero, l'auteur qui l'a écrit, en est le dernier mot. Le vaincre, c'est briser la plume et rendre au monde son silence.*
