@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>RED DEATH — Prototype</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
+  html,body { width:100%; height:100%; background:#0a0507; overflow:hidden; touch-action:none; font-family:Georgia,'Times New Roman',serif; }
+  canvas { display:block; position:fixed; top:0; left:0; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// =====================================================================
+// RED DEATH — Prototype de "feel" (vertical slice tactile)
+// Prouve : contamination qui monte, arquebuse au reload lent (perfect
+// reload), combinaison qui se degrade, esthetique "le monde s'ecrit".
+// Top-down stylise (le jeu final vise l'iso). Tactile iPhone + clavier.
+// =====================================================================
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize); resize();
+
+// ---- Palette (DA : noir / rouge pourpre / or fane / blanc froid) ----
+const COL = { ink:'#0a0507', blood:'#8c1c2b', bloodHi:'#c0392b', gold:'#b89a5e', goldDim:'#6e5c39', bone:'#e9e2d0', white:'#f4f1e8', mist:'#3a0e16' };
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const POE_WORDS = ["RED","DEATH","BLOOD","TIME","DECAY","MASK","PROSPERO","DUST","SILENCE","MORS","FINIS","UMBRA","SANG","FUITE"];
+function rl(){ return LETTERS[(Math.random()*LETTERS.length)|0]; }
+
+// ---- World ----
+const WORLD = { w:1500, h:2100 }; // tall room : on remonte vers la porte
+const cam = { x:0, y:0 };
+
+const player = {
+  x: WORLD.w/2, y: WORLD.h-200, r:16, speed:170,
+  fx:0, fy:-1,           // facing
+  hp:100, suit:100,      // sante / integrite combinaison
+  contam:0,              // 0..100
+  loaded:true, reloading:false, reloadT:0, reloadDur:2.6, perfectHit:false,
+  unmasked:false, demaskCd:0
+};
+
+// ---- Entities ----
+let bullets=[], smoke=[], enemies=[], purges=[], creep=[], shards=[], floaters=[];
+let elapsed=0, kills=0, state='title', deathReason='', shakeT=0, shake=0;
+let spawnT=2.0, door={x:WORLD.w/2, y:60, w:200, h:60};
+
+function spawnEnemy(){
+  // depuis le haut / cotes
+  const edge = Math.random();
+  let x,y;
+  if(edge<0.6){ x = 120+Math.random()*(WORLD.w-240); y = cam.y-40; }
+  else if(edge<0.8){ x = 80; y = cam.y+Math.random()*H*0.6; }
+  else { x = WORLD.w-80; y = cam.y+Math.random()*H*0.6; }
+  const murmure = Math.random()<0.35;
+  enemies.push({
+    x,y, r: murmure?12:18,
+    hp: murmure?1:2, max: murmure?1:2,
+    speed: murmure? 95+Math.random()*30 : 42+Math.random()*16,
+    type: murmure?'murmure':'convie',
+    wob:Math.random()*6, letter: rl(), hitT:0
+  });
+}
+
+function reset(){
+  bullets=[]; smoke=[]; enemies=[]; purges=[]; creep=[]; shards=[]; floaters=[];
+  elapsed=0; kills=0; spawnT=1.5; deathReason='';
+  player.x=WORLD.w/2; player.y=WORLD.h-200; player.fx=0; player.fy=-1;
+  player.hp=100; player.suit=100; player.contam=0;
+  player.loaded=true; player.reloading=false; player.reloadT=0; player.perfectHit=false;
+  player.unmasked=false; player.demaskCd=0;
+  // kits de purge le long du parcours
+  for(let i=0;i<5;i++) purges.push({ x:200+Math.random()*(WORLD.w-400), y:300+i*340+Math.random()*120, r:14, pulse:Math.random()*6 });
+  // inscriptions gravees (statiques)
+  creep=[];
+  for(let i=0;i<140;i++) creep.push({ x:Math.random()*WORLD.w, y:Math.random()*WORLD.h, c:rl(), a:0.05+Math.random()*0.08, s:10+Math.random()*16 });
+}
+
+// =====================================================================
+// INPUT  (tactile : joystick gauche + boutons droite ; clavier fallback)
+// =====================================================================
+const keys = {};
+window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true;
+  if(e.key===' '){ e.preventDefault(); pressFire(); }
+  if(e.key.toLowerCase()==='r'){ pressReload(); }
+  if(e.key.toLowerCase()==='e'){ pressDemask(); }
+  if(state!=='play' && (e.key===' '||e.key==='Enter')){ startGame(); }
+});
+window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
+
+const stick = { active:false, id:null, ox:0, oy:0, x:0, y:0, dx:0, dy:0 };
+const btn = {
+  fire:  { x:0,y:0,r:46, id:null, label:'TIRER' },
+  reload:{ x:0,y:0,r:40, id:null, label:'CHARGER' },
+  demask:{ x:0,y:0,r:30, id:null, label:'MASQUE' }
+};
+function layoutButtons(){
+  btn.fire.x   = W-78;  btn.fire.y   = H-90;
+  btn.reload.x = W-160; btn.reload.y = H-78;
+  btn.demask.x = W-72;  btn.demask.y = H-185;
+}
+function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
+
+function touchStart(t){
+  // boutons d'abord (cote droit)
+  for(const k of ['fire','reload','demask']){
+    const b=btn[k];
+    if(dist(t.clientX,t.clientY,b.x,b.y) < b.r+18){
+      b.id=t.identifier;
+      if(k==='fire') pressFire();
+      if(k==='reload') pressReload();
+      if(k==='demask') pressDemask();
+      return;
+    }
+  }
+  // sinon joystick (cote gauche moitie)
+  if(t.clientX < W*0.55 && !stick.active){
+    stick.active=true; stick.id=t.identifier;
+    stick.ox=t.clientX; stick.oy=t.clientY; stick.x=t.clientX; stick.y=t.clientY;
+  }
+}
+function touchMove(t){
+  if(stick.active && t.identifier===stick.id){
+    stick.x=t.clientX; stick.y=t.clientY;
+    let dx=stick.x-stick.ox, dy=stick.y-stick.oy;
+    const m=Math.hypot(dx,dy), cap=60;
+    if(m>cap){ dx=dx/m*cap; dy=dy/m*cap; }
+    stick.dx = dx/cap; stick.dy = dy/cap;
+  }
+}
+function touchEnd(t){
+  if(stick.active && t.identifier===stick.id){ stick.active=false; stick.id=null; stick.dx=0; stick.dy=0; }
+  for(const k of ['fire','reload','demask']) if(btn[k].id===t.identifier) btn[k].id=null;
+}
+cv.addEventListener('touchstart', e=>{ e.preventDefault();
+  if(state!=='play'){ startGame(); return; }
+  for(const t of e.changedTouches) touchStart(t);
+},{passive:false});
+cv.addEventListener('touchmove', e=>{ e.preventDefault(); for(const t of e.changedTouches) touchMove(t); },{passive:false});
+cv.addEventListener('touchend', e=>{ e.preventDefault(); for(const t of e.changedTouches) touchEnd(t); },{passive:false});
+cv.addEventListener('touchcancel', e=>{ for(const t of e.changedTouches) touchEnd(t); },{passive:false});
+cv.addEventListener('mousedown', e=>{ if(state!=='play'){ startGame(); } });
+
+// =====================================================================
+// ACTIONS
+// =====================================================================
+function startGame(){ reset(); state='play'; tryAudio(); }
+function pressFire(){
+  if(state!=='play') return;
+  if(player.reloading){ // tap pendant reload = tentative de "perfect"
+    resolveReloadTap(); return;
+  }
+  if(!player.loaded){ pressReload(); return; }
+  fire();
+}
+function fire(){
+  player.loaded=false;
+  const a=Math.atan2(player.fy,player.fx);
+  const sx=player.x+Math.cos(a)*22, sy=player.y+Math.sin(a)*22;
+  bullets.push({ x:sx,y:sy, vx:Math.cos(a)*620, vy:Math.sin(a)*620, life:1.1, letter:rl(), trail:[] });
+  // fumee qui masque
+  for(let i=0;i<10;i++) smoke.push({ x:sx,y:sy, vx:Math.cos(a)*40+(Math.random()-.5)*40, vy:Math.sin(a)*40+(Math.random()-.5)*40, life:0.9+Math.random()*0.5, r:8+Math.random()*10 });
+  shakeT=0.12; shake=4;
+  beep(180,0.05,0.25);
+}
+function pressReload(){
+  if(state!=='play' || player.loaded || player.reloading) return;
+  player.reloading=true; player.reloadT=0; player.perfectHit=false;
+  // contamination ralentit/perturbe la meche
+  player.reloadDur = 2.4 + player.contam*0.012;
+}
+function resolveReloadTap(){
+  // fenetre "perfect" : rallumer la meche au bon moment (60%..78% de la barre)
+  const p = player.reloadT/player.reloadDur;
+  if(p>0.60 && p<0.80){ player.perfectHit=true; player.reloading=false; player.loaded=true; flash=0.15; beep(520,0.06,0.3); }
+  else { // rate : petit malus de temps
+    player.reloadT = Math.min(player.reloadDur*0.55, player.reloadT+player.reloadDur*0.12);
+    beep(90,0.05,0.2);
+  }
+}
+function pressDemask(){
+  if(state!=='play' || player.demaskCd>0) return;
+  player.unmasked=!player.unmasked; player.demaskCd=0.4;
+}
+let flash=0;
+
+// =====================================================================
+// AUDIO (battement de coeur lie a la contamination) — optionnel
+// =====================================================================
+let actx=null;
+function tryAudio(){ try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){} }
+function beep(freq,dur,vol){ if(!actx) return; try{
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.frequency.value=freq; o.type='sawtooth'; g.gain.value=vol;
+  o.connect(g); g.connect(actx.destination); o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime+dur);
+  o.stop(actx.currentTime+dur);
+}catch(e){} }
+let heartT=0;
+function heartbeat(dt){
+  if(!actx) return;
+  const rate = 1.4 - (player.contam/100)*1.0; // s'accelere avec la contamination
+  heartT-=dt;
+  if(heartT<=0 && player.contam>15){ heartT=Math.max(0.32,rate); beep(60,0.12,0.18+player.contam/400); }
+}
+
+// =====================================================================
+// UPDATE
+// =====================================================================
+function update(dt){
+  if(state!=='play') return;
+  elapsed+=dt;
+  if(player.demaskCd>0) player.demaskCd-=dt;
+  if(flash>0) flash-=dt;
+  if(shakeT>0){ shakeT-=dt; if(shakeT<=0) shake=0; }
+
+  // ---- mouvement ----
+  let mx=stick.dx, my=stick.dy;
+  if(keys['a']||keys['arrowleft']) mx-=1;
+  if(keys['d']||keys['arrowright']) mx+=1;
+  if(keys['w']||keys['arrowup']) my-=1;
+  if(keys['s']||keys['arrowdown']) my+=1;
+  const mm=Math.hypot(mx,my);
+  if(mm>0.08){
+    const nx=mx/Math.max(mm,1), ny=my/Math.max(mm,1);
+    const sp = player.speed*(1 - player.contam*0.0022); // corruption ralentit un peu
+    player.x+=nx*sp*dt; player.y+=ny*sp*dt;
+    player.fx=nx; player.fy=ny;
+  }
+  player.x=Math.max(60,Math.min(WORLD.w-60,player.x));
+  player.y=Math.max(40,Math.min(WORLD.h-40,player.y));
+
+  // ---- camera ----
+  cam.x = player.x - W/2;
+  cam.y = player.y - H*0.62;
+  cam.x=Math.max(0,Math.min(WORLD.w-W,cam.x));
+  cam.y=Math.max(0,Math.min(WORLD.h-H,cam.y));
+  if(WORLD.w<W) cam.x=(WORLD.w-W)/2;
+
+  // ---- contamination (modele du GDD : base + zone + (1-suit)) ----
+  const deep = 1 - (player.y/WORLD.h); // plus on monte (vers la porte) plus c'est profond
+  const zoneMult = 1 + deep*1.6;
+  const suitLeak = player.unmasked ? 0.25 : (1 - player.suit/100); // demasque = moins de fuite passive...
+  const base = 0.9;
+  player.contam += (base*zoneMult + suitLeak*3.2) * dt;
+  player.contam = Math.max(0, Math.min(100, player.contam));
+  // la combinaison se degrade lentement avec le temps (sauf demasque)
+  if(!player.unmasked) player.suit = Math.max(0, player.suit - 0.7*dt);
+  if(player.contam>=100){ state='dead'; deathReason='La Mort Rouge t\'a ecrit.'; }
+  if(player.hp<=0){ state='dead'; deathReason='Ton corps a cede.'; }
+
+  // ---- reload ----
+  if(player.reloading){
+    player.reloadT+=dt;
+    if(player.reloadT>=player.reloadDur){ player.reloading=false; player.loaded=true; player.perfectHit=false; beep(300,0.05,0.2); }
+  }
+
+  // ---- bullets ----
+  for(const b of bullets){
+    b.trail.push({x:b.x,y:b.y,c:rl()}); if(b.trail.length>10) b.trail.shift();
+    b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+    for(const e of enemies){
+      if(e.hp>0 && dist(b.x,b.y,e.x,e.y)<e.r+6){
+        e.hp--; e.hitT=0.15; b.life=0;
+        for(let i=0;i<7;i++) shards.push({x:b.x,y:b.y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:0.5,c:rl()});
+        if(e.hp<=0){ kills++; for(let i=0;i<10;i++) shards.push({x:e.x,y:e.y,vx:(Math.random()-.5)*220,vy:(Math.random()-.5)*220,life:0.7,c:rl()}); }
+        break;
+      }
+    }
+  }
+  bullets=bullets.filter(b=>b.life>0 && b.x>cam.x-50 && b.x<cam.x+W+50 && b.y>cam.y-50 && b.y<cam.y+H+50);
+  smoke.forEach(s=>{ s.x+=s.vx*dt; s.y+=s.vy*dt; s.life-=dt; s.r+=14*dt; });
+  smoke=smoke.filter(s=>s.life>0);
+  shards.forEach(s=>{ s.x+=s.vx*dt; s.y+=s.vy*dt; s.vx*=0.92; s.vy*=0.92; s.life-=dt; });
+  shards=shards.filter(s=>s.life>0);
+
+  // ---- enemies ----
+  spawnT-=dt;
+  const maxE = 4 + Math.floor(elapsed/15);
+  if(spawnT<=0 && enemies.length<maxE){ spawnEnemy(); spawnT = Math.max(0.8, 2.4 - elapsed*0.02); }
+  for(const e of enemies){
+    if(e.hitT>0) e.hitT-=dt;
+    const a=Math.atan2(player.y-e.y, player.x-e.x);
+    e.wob+=dt*4;
+    e.x+=Math.cos(a)*e.speed*dt + Math.cos(e.wob)*8*dt;
+    e.y+=Math.sin(a)*e.speed*dt;
+    if(dist(e.x,e.y,player.x,player.y) < e.r+player.r){
+      // contact : abime la combinaison + pousse + petit degat si demasque
+      player.suit=Math.max(0,player.suit-22*dt*60*dt*6); // degradation a l'impact
+      player.suit=Math.max(0,player.suit-12*dt);
+      if(player.unmasked) player.hp-=14*dt;
+      player.contam=Math.min(100,player.contam+6*dt);
+      const pa=Math.atan2(player.y-e.y,player.x-e.x);
+      player.x+=Math.cos(pa)*60*dt; player.y+=Math.sin(pa)*60*dt;
+      shakeT=0.1; shake=3;
+    }
+  }
+  enemies=enemies.filter(e=>e.hp>0);
+
+  // ---- purges ----
+  purges.forEach(p=>p.pulse+=dt*3);
+  for(const p of purges){
+    if(!p.taken && dist(p.x,p.y,player.x,player.y)<p.r+player.r){
+      p.taken=true; player.contam=Math.max(0,player.contam-30); player.suit=Math.min(100,player.suit+12); flash=0.2; beep(440,0.12,0.25);
+    }
+  }
+  purges=purges.filter(p=>!p.taken);
+
+  // ---- hallucinations (contam>72) : faux ennemis-texte ----
+  if(player.contam>72 && Math.random()<0.04){ floaters.push({ x:player.x+(Math.random()-.5)*W*0.8, y:player.y+(Math.random()-.5)*H*0.6, life:1.2, w:POE_WORDS[(Math.random()*POE_WORDS.length)|0] }); }
+  floaters.forEach(f=>f.life-=dt); floaters=floaters.filter(f=>f.life>0);
+
+  // ---- victoire : franchir la porte ----
+  if(player.y < door.y+door.h && player.x>door.x-door.w/2 && player.x<door.x+door.w/2){
+    state='win';
+  }
+
+  heartbeat(dt);
+}
+
+// =====================================================================
+// RENDER
+// =====================================================================
+function wx(x){ return x-cam.x; }
+function wy(y){ return y-cam.y; }
+
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  // shake
+  let sx=0,sy=0; if(shake>0){ sx=(Math.random()-.5)*shake; sy=(Math.random()-.5)*shake; ctx.translate(sx,sy); }
+
+  // fond
+  ctx.fillStyle=COL.ink; ctx.fillRect(-10,-10,W+20,H+20);
+
+  if(state==='title'){ drawTitle(); ctx.setTransform(DPR,0,0,DPR,0,0); return; }
+
+  // sol : leger degrade + brume rouge en profondeur (haut de la salle)
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, '#1a0a0e'); g.addColorStop(1, '#0c0608');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // inscriptions gravees (statiques, immobiles = patrimoine)
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(const c of creep){
+    const x=wx(c.x), y=wy(c.y);
+    if(x<-20||x>W+20||y<-20||y>H+20) continue;
+    ctx.globalAlpha=c.a; ctx.fillStyle=COL.goldDim; ctx.font=c.s+'px Georgia';
+    ctx.fillText(c.c,x,y);
+  }
+  ctx.globalAlpha=1;
+
+  // murs
+  ctx.strokeStyle=COL.goldDim; ctx.lineWidth=4;
+  ctx.strokeRect(wx(40),wy(20),WORLD.w-80,WORLD.h-40);
+
+  // porte (chambre suivante)
+  const dx=wx(door.x-door.w/2), dy=wy(door.y);
+  ctx.fillStyle=COL.blood; ctx.fillRect(dx,dy,door.w,door.h);
+  ctx.fillStyle=COL.bone; ctx.font='16px Georgia';
+  ctx.fillText('CHAMBRE SUIVANTE', wx(door.x), wy(door.y+door.h/2));
+
+  // purges
+  for(const p of purges){
+    const x=wx(p.x),y=wy(p.y); if(x<-20||x>W+20||y<-20||y>H+20) continue;
+    const r=p.r+Math.sin(p.pulse)*2;
+    ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fillStyle='rgba(180,154,94,0.18)'; ctx.fill();
+    ctx.strokeStyle=COL.gold; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=COL.gold; ctx.font='14px Georgia'; ctx.fillText('✚',x,y+1);
+  }
+
+  // shards (fragments typographiques)
+  for(const s of shards){ ctx.globalAlpha=Math.max(0,s.life*1.4); ctx.fillStyle=COL.bloodHi; ctx.font='14px Georgia'; ctx.fillText(s.c,wx(s.x),wy(s.y)); }
+  ctx.globalAlpha=1;
+
+  // enemies
+  for(const e of enemies){
+    const x=wx(e.x),y=wy(e.y);
+    if(e.type==='murmure'){
+      ctx.globalAlpha=0.85; ctx.fillStyle= e.hitT>0?COL.white:COL.bloodHi;
+      ctx.font='bold '+(e.r*1.6)+'px Georgia'; ctx.fillText(e.letter,x,y); ctx.globalAlpha=1;
+    } else {
+      // Convie : silhouette masquee
+      ctx.fillStyle= e.hitT>0?COL.white:'#1c1014';
+      ctx.beginPath(); ctx.arc(x,y,e.r,0,7); ctx.fill();
+      ctx.strokeStyle=COL.gold; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle=e.hitT>0?COL.ink:COL.blood; // masque
+      ctx.beginPath(); ctx.arc(x,y-2,e.r*0.5,0,7); ctx.fill();
+    }
+  }
+
+  // bullets + trainee de lettres
+  for(const b of bullets){
+    for(let i=0;i<b.trail.length;i++){ const t=b.trail[i]; ctx.globalAlpha=i/b.trail.length*0.9; ctx.fillStyle=COL.white; ctx.font='14px Georgia'; ctx.fillText(t.c,wx(t.x),wy(t.y)); }
+    ctx.globalAlpha=1; ctx.fillStyle=COL.white; ctx.font='bold 16px Georgia'; ctx.fillText(b.letter,wx(b.x),wy(b.y));
+  }
+
+  // smoke
+  for(const s of smoke){ ctx.globalAlpha=Math.max(0,s.life*0.5); ctx.fillStyle='#d8d2c4'; ctx.beginPath(); ctx.arc(wx(s.x),wy(s.y),s.r,0,7); ctx.fill(); }
+  ctx.globalAlpha=1;
+
+  // ---- player (medecin de peste) ----
+  drawPlayer();
+
+  // hallucinations
+  for(const f of floaters){ ctx.globalAlpha=Math.min(1,f.life)*0.5; ctx.fillStyle=COL.blood; ctx.font='bold 22px Georgia'; ctx.fillText(f.w,wx(f.x),wy(f.y)); }
+  ctx.globalAlpha=1;
+
+  // ---- vignette de contamination : le texte envahit l'ecran ----
+  drawContamVignette();
+
+  // flash
+  if(flash>0){ ctx.globalAlpha=flash*1.5; ctx.fillStyle=COL.white; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  drawHUD();
+  drawControls();
+  if(state==='dead') drawEnd(false);
+  if(state==='win') drawEnd(true);
+}
+
+function drawPlayer(){
+  const x=wx(player.x), y=wy(player.y);
+  // halo de lumiere (reduit par contamination)
+  const vis = 220*(1 - player.contam*0.0035);
+  const rg=ctx.createRadialGradient(x,y,10,x,y,vis);
+  rg.addColorStop(0,'rgba(244,241,232,0.10)'); rg.addColorStop(1,'rgba(244,241,232,0)');
+  ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(x,y,vis,0,7); ctx.fill();
+  // corps
+  ctx.fillStyle = player.unmasked? '#caa' : '#20141a';
+  ctx.beginPath(); ctx.arc(x,y,player.r,0,7); ctx.fill();
+  ctx.strokeStyle=COL.gold; ctx.lineWidth=2.5; ctx.stroke();
+  // bec du masque (oriente vers fx,fy)
+  if(!player.unmasked){
+    const a=Math.atan2(player.fy,player.fx);
+    ctx.fillStyle=COL.gold; ctx.beginPath();
+    ctx.moveTo(x+Math.cos(a)*player.r*1.9, y+Math.sin(a)*player.r*1.9);
+    ctx.lineTo(x+Math.cos(a+2.4)*player.r*0.8, y+Math.sin(a+2.4)*player.r*0.8);
+    ctx.lineTo(x+Math.cos(a-2.4)*player.r*0.8, y+Math.sin(a-2.4)*player.r*0.8);
+    ctx.closePath(); ctx.fill();
+  } else {
+    // demasque : le texte s'ecrit sur la peau
+    ctx.fillStyle=COL.blood; ctx.font='10px Georgia';
+    ctx.fillText(rl(),x+(Math.random()-.5)*10,y+(Math.random()-.5)*10);
+  }
+  // ligne de visee
+  const a=Math.atan2(player.fy,player.fx);
+  ctx.strokeStyle='rgba(244,241,232,0.18)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(a)*60,y+Math.sin(a)*60); ctx.stroke();
+}
+
+function drawContamVignette(){
+  const c=player.contam/100;
+  if(c<=0.02) return;
+  // bord assombri rouge
+  const v=ctx.createRadialGradient(W/2,H*0.55,Math.min(W,H)*0.2, W/2,H*0.55, Math.max(W,H)*0.75);
+  v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(40,4,10,'+(0.15+c*0.6)+')');
+  ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
+  // lettres qui rampent depuis les bords (densite ~ contamination)
+  const n=Math.floor(c*90);
+  ctx.fillStyle='rgba(140,28,43,'+(0.25+c*0.5)+')'; ctx.textAlign='center';
+  for(let i=0;i<n;i++){
+    const edge=i%4; let x,y; const m=20+Math.random()*70*c;
+    if(edge===0){ x=Math.random()*W; y=m; }
+    else if(edge===1){ x=Math.random()*W; y=H-m; }
+    else if(edge===2){ x=m; y=Math.random()*H; }
+    else { x=W-m; y=Math.random()*H; }
+    ctx.font=(10+Math.random()*14)+'px Georgia';
+    ctx.fillText(rl(),x,y);
+  }
+  if(c>0.85){ ctx.globalAlpha=(c-0.85)*4*Math.abs(Math.sin(elapsed*4)); ctx.fillStyle=COL.bloodHi; ctx.font='bold 60px Georgia'; ctx.fillText(['RED','DEATH','MORS'][(elapsed*2|0)%3], W/2, H/2); ctx.globalAlpha=1; }
+}
+
+// ---- HUD ----
+function drawHUD(){
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  const pad=14, top=14+ (window.innerHeight>700?20:0);
+  // CONTAMINATION
+  bar(pad, top, 200, 14, player.contam/100, COL.blood, 'CONTAMINATION');
+  // COMBINAISON
+  bar(pad, top+34, 200, 14, player.suit/100, COL.gold, 'COMBINAISON');
+  // arme
+  ctx.font='13px Georgia'; ctx.textAlign='right';
+  let armeTxt = player.loaded? 'ARQUEBUSE : CHARGÉE' : (player.reloading? 'RECHARGEMENT…' : 'ARQUEBUSE : VIDE');
+  ctx.fillStyle = player.loaded?COL.bone:COL.blood; ctx.fillText(armeTxt, W-pad, top);
+  ctx.fillStyle=COL.goldDim; ctx.fillText('Tués : '+kills+'   T : '+elapsed.toFixed(0)+'s', W-pad, top+20);
+  if(player.unmasked){ ctx.fillStyle=COL.bloodHi; ctx.fillText('DÉMASQUÉ', W-pad, top+40); }
+
+  // barre de reload (perfect window)
+  if(player.reloading){
+    const bw=240, bx=W/2-bw/2, by=H-150;
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(bx,by,bw,16);
+    // zone perfect 60-80%
+    ctx.fillStyle='rgba(184,154,94,0.5)'; ctx.fillRect(bx+bw*0.60,by,bw*0.20,16);
+    const p=player.reloadT/player.reloadDur;
+    ctx.fillStyle=COL.white; ctx.fillRect(bx+bw*p-2,by-3,4,22);
+    ctx.fillStyle=COL.bone; ctx.font='12px Georgia'; ctx.textAlign='center';
+    ctx.fillText('TAPER pour rallumer la mèche (zone dorée = parfait)', W/2, by-18);
+  }
+}
+function bar(x,y,w,h,v,col,label){
+  ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(x-2,y-2,w+4,h+4);
+  ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=col; ctx.fillRect(x,y,w*Math.max(0,Math.min(1,v)),h);
+  ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
+  ctx.fillStyle=COL.bone; ctx.font='10px Georgia'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(label,x+4,y+h/2); ctx.textBaseline='top';
+}
+
+// ---- boutons tactiles ----
+function drawControls(){
+  layoutButtons();
+  // joystick
+  if(stick.active){
+    ctx.globalAlpha=0.5;
+    ctx.strokeStyle=COL.gold; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(stick.ox,stick.oy,60,0,7); ctx.stroke();
+    ctx.fillStyle=COL.gold; ctx.beginPath(); ctx.arc(stick.ox+stick.dx*60,stick.oy+stick.dy*60,24,0,7); ctx.fill();
+    ctx.globalAlpha=1;
+  }
+  drawBtn(btn.fire, player.loaded?COL.blood:'#3a2a2e', '🔫');
+  drawBtn(btn.reload, player.reloading?COL.gold:'#2a2024', '↻');
+  drawBtn(btn.demask, '#2a2024', '☻');
+  // labels
+  ctx.fillStyle=COL.goldDim; ctx.font='10px Georgia'; ctx.textAlign='center';
+  ctx.fillText('TIRER', btn.fire.x, btn.fire.y+btn.fire.r+10);
+  ctx.fillText('CHARGER', btn.reload.x, btn.reload.y+btn.reload.r+10);
+  ctx.fillText('MASQUE', btn.demask.x, btn.demask.y+btn.demask.r+8);
+}
+function drawBtn(b,fill,glyph){
+  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill();
+  ctx.fillStyle=fill; ctx.globalAlpha=0.55; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill(); ctx.globalAlpha=1;
+  ctx.strokeStyle=COL.gold; ctx.lineWidth=2; ctx.stroke();
+  ctx.fillStyle=COL.bone; ctx.font=(b.r*0.8)+'px Georgia'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(glyph,b.x,b.y+1); ctx.textBaseline='top';
+}
+
+// ---- ecrans ----
+function drawTitle(){
+  ctx.fillStyle=COL.ink; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  // lettres rampantes en fond
+  ctx.globalAlpha=0.12; ctx.fillStyle=COL.blood;
+  for(let i=0;i<80;i++){ ctx.font=(12+Math.random()*30)+'px Georgia'; ctx.fillText(rl(),Math.random()*W,Math.random()*H); }
+  ctx.globalAlpha=1;
+  ctx.fillStyle=COL.blood; ctx.font='bold '+Math.min(72,W*0.16)+'px Georgia';
+  ctx.fillText('RED DEATH', W/2, H*0.32);
+  ctx.fillStyle=COL.goldDim; ctx.font='15px Georgia';
+  ctx.fillText('prototype de feel — château de Prospero', W/2, H*0.32+50);
+  ctx.fillStyle=COL.bone; ctx.font='15px Georgia';
+  const tips=[
+    'Survis à la contamination. Atteins la chambre suivante (en haut).',
+    '— Joystick (moitié gauche) : se déplacer',
+    '— TIRER : arquebuse (un coup, puis recharger)',
+    '— CHARGER puis TAPER l\'écran dans la zone dorée = rechargement parfait',
+    '— Ramasse les ✚ pour purger la contamination',
+    '— MASQUE : retirer la combinaison (moins de fuite, mais exposé)'
+  ];
+  tips.forEach((t,i)=> ctx.fillText(t, W/2, H*0.52+i*26));
+  ctx.fillStyle=COL.bloodHi; ctx.font='bold 20px Georgia';
+  ctx.fillText('▶ TOUCHER POUR COMMENCER', W/2, H*0.86);
+}
+function drawEnd(win){
+  ctx.fillStyle='rgba(10,5,7,0.82)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle=win?COL.gold:COL.blood; ctx.font='bold '+Math.min(54,W*0.12)+'px Georgia';
+  ctx.fillText(win?'CHAMBRE FRANCHIE':'MORT', W/2, H*0.4);
+  ctx.fillStyle=COL.bone; ctx.font='16px Georgia';
+  ctx.fillText(win? 'Tu as atteint l\'escalier suivant.' : deathReason, W/2, H*0.4+44);
+  ctx.fillText('Tués : '+kills+'   Temps : '+elapsed.toFixed(1)+'s', W/2, H*0.4+72);
+  ctx.fillStyle=COL.bloodHi; ctx.font='bold 18px Georgia';
+  ctx.fillText('▶ TOUCHER POUR REJOUER', W/2, H*0.62);
+}
+
+// =====================================================================
+// LOOP
+// =====================================================================
+let last=performance.now();
+function loop(now){
+  let dt=(now-last)/1000; last=now; if(dt>0.05) dt=0.05;
+  update(dt); draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
