@@ -10,35 +10,42 @@
 
 Le temps est la ressource centrale. Tout le design tourne autour d'une seule tension : **explorer vite mais incomplet, ou rester et se corrompre.**
 
+**Univers & cadre.** Un voyageur arrive dans un **village de Toscane** dévasté par la peste, et doit atteindre puis **gravir le château du Prince Prospero**. Chaque étage du château se termine par une **chambre de couleur** (les sept salles de la nouvelle de Poe) qui, une fois sa **Mort de couleur** vaincue, ouvre l'escalier vers l'étage suivant — jusqu'à la chambre noire aux vitraux écarlates et la **Mort Rouge**. La structure complète est en §1.0 et §1.5.
+
 ---
 
 ## 1. GAMEPLAY
 
-### 1.1 Boucle de gameplay principale (macro)
+### 1.0 Structure générale : l'Ascension du château
 
-Structure en **expéditions** (runs) dans un manoir/domaine décadent, découpé en ailes (niveaux).
+Le jeu suit un **fil narratif et spatial unique** : un voyageur arrive dans un **village de Toscane** ravagé par la peste, et doit atteindre puis **gravir le château du Prince Prospero**, étage par étage.
 
 ```
-PRÉPARATION (hub sûr)
-   └─ Réparer la combinaison, dépenser le loot, choisir l'aile cible
+VILLAGE DE TOSCANE (prologue / hub initial)
+   └─ Peste, ruines, premiers indices, équipement de départ
       ↓
-ENTRÉE DANS L'AILE (la jauge de contamination commence à monter)
-   └─ EXPLORER → trouver loot / fragments / leviers
-   └─ ÉVITER ou ENGAGER les ennemis (combat rare, coûteux)
-   └─ GÉRER la dégradation de la combinaison
+PORTES DU CHÂTEAU DE PROSPERO
       ↓
-POINT DE DÉCISION RÉCURRENT : « je pousse plus loin, ou je m'extrais ? »
+ÉTAGE 1 → ... → ÉTAGE 7  (ascension verticale)
+   Chaque étage = un dédale à explorer (loot, contamination, ennemis)
+   qui se termine par UNE CHAMBRE DE COULEUR.
       ↓
-EXTRACTION (porte de sortie) OU MORT (perte partielle du loot non sécurisé)
+   CHAMBRE DE COULEUR (au bout de l'étage)
+      └─ Mécanique de jeu UNIQUE propre à la couleur
+      └─ BOSS : la MORT de cette couleur
+      └─ Vaincre la Mort = l'escalier vers l'étage suivant s'ouvre
       ↓
-RETOUR HUB → on recommence, plus équipé, l'aile suivante est plus hostile
+SOMMET : la CHAMBRE NOIRE aux vitraux écarlates
+   └─ Affrontement final avec la MORT ROUGE
 ```
 
-**Principe d'or :** la boucle ne se gagne pas par le combat, elle se gagne par la **gestion du risque temporel**. Le joueur n'est jamais « bloqué par un mur d'ennemis » ; il est pressé par sa propre jauge.
+**Les sept chambres reprennent les sept salles de la nouvelle de Poe** (bleu, pourpre, vert, orange, blanc, violet, noir), d'est en ouest chez Poe, ici de bas en haut. Voir la **section 1.5** pour le détail de chaque chambre.
 
-### 1.2 Boucle minute par minute (micro) — l'expérience de tension
+**Principe d'or :** la progression ne se gagne pas par le combat de masse, elle se gagne par la **gestion du risque temporel** dans chaque étage, puis par la **maîtrise de la mécanique unique** de la chambre. Le joueur n'est jamais « bloqué par un mur d'ennemis » ; il est pressé par sa propre jauge, puis testé par un duel thématique.
 
-Objectif : que le joueur ressente une **pression croissante et lisible** sur ~8–12 min par aile.
+### 1.1 Boucle minute par minute (micro) — l'expérience de tension
+
+Objectif : que le joueur ressente une **pression croissante et lisible** pendant l'exploration d'un étage (~8–12 min) avant d'atteindre sa chambre de couleur.
 
 | Temps | État de la combinaison | Ressenti visé | Décision typique du joueur |
 |---|---|---|---|
@@ -50,15 +57,23 @@ Objectif : que le joueur ressente une **pression croissante et lisible** sur ~8�
 
 **Règle de design :** la tension doit être **auto-infligée**. Le joueur décide de rester pour le loot ; le jeu ne fait que rendre visible le coût. C'est le moteur émotionnel du jeu.
 
-### 1.3 Le « risk/reward » spatial : la Profondeur
+### 1.2 Le « risk/reward » spatial : la Profondeur de l'étage
 
-Chaque aile est conçue en **anneaux de profondeur** : plus on s'enfonce, plus le loot est riche **et** plus la contamination ambiante monte vite.
+Chaque étage est conçu en **anneaux de profondeur** autour du chemin direct vers la chambre de couleur : plus on s'écarte du chemin et on fouille, plus le loot est riche **et** plus la contamination ambiante monte vite.
 
-- **Anneau extérieur** : safe-ish, loot commun, peu de contamination.
-- **Anneau médian** : loot intéressant, ennemis, contamination modérée.
-- **Cœur (« la Chambre Pourpre »)** : meilleur loot, contamination galopante, point de non-retour si on s'attarde.
+- **Chemin direct** : sûr-ish, loot commun, mène droit à la chambre.
+- **Salles annexes** : loot intéressant, ennemis, contamination modérée.
+- **Recoins scellés** : meilleur loot (ressources de réparation/purge), souvent gardés ou contaminés ; détour à haut risque temporel.
 
-La sortie d'extraction est souvent **loin du cœur** → s'enfoncer profond = pari sur le temps de retour.
+> Important : la chambre de couleur et son boss exigent d'arriver **en état de combattre**. Trop fouiller = arriver au duel déjà corrompu, combinaison usée. Le dilemme « explorer ou se préserver » se rejoue donc à chaque étage, avec le boss comme échéance.
+
+### 1.3 Le tempo d'un étage : exploration → seuil → duel
+
+Chaque étage suit un arc en trois temps, ce qui donne au jeu un **rythme de respiration régulier** sur les 7 étages :
+
+1. **Exploration** (gestion du risque temporel, loot, ennemis mineurs).
+2. **Le Seuil** : la grande porte de la chambre de couleur. Dernier point pour faire ses choix (réparer ? purger ? entrer maintenant ?). Franchir = on s'engage, retour fermé.
+3. **Le Duel** : la chambre, sa mécanique unique, la Mort de couleur. Victoire = l'escalier s'ouvre, court répit, montée à l'étage suivant.
 
 ### 1.4 Exemples concrets de situations de jeu
 
@@ -70,6 +85,28 @@ Une salle contient un kit de réparation **et** un trésor de loot, mais une seu
 
 **Situation C — « L'extraction sous corruption »**
 Contamination à 85 %. L'écran se couvre de typographie noire qui ronge les bords. Le joueur connaît le chemin de sortie mais sa vision se réduit. Course finale tendue : chaque seconde compte, le combat est suicidaire, seule la lecture du niveau sauve.
+
+### 1.5 LES SEPT CHAMBRES — étages, mécaniques uniques & Morts de couleur
+
+Le cœur structurel du jeu. Chaque étage culmine dans une chambre dont la **couleur** dicte à la fois l'ambiance, une **mécanique de gameplay unique** (un « verbe » différent par étage, pour que le jeu ne se répète jamais) et une **Mort de couleur** comme boss. Vaincre la Mort ouvre l'escalier suivant.
+
+> **Règle de cohérence :** la mécanique unique de la chambre **prépare** le combat contre sa Mort. On apprend la règle de la salle en la traversant, puis la Mort l'exploite contre nous. Tutoriel implicite intégré au level design.
+
+| # | Chambre | Atmosphère (Poe) | Mécanique de jeu unique | La Mort de couleur (boss) |
+|---|---|---|---|---|
+| 1 | **Bleue** (l'Aube / les eaux) | Aube froide, vitraux bleus, eaux dormantes à l'orient | **La lumière & la montée des eaux** : pénombre, on explore à la lanterne ; l'eau monte et restreint l'espace jouable au fil du temps | **La Mort Bleue** : noyée, lente, éteint les lumières et inonde l'arène — il faut la garder éclairée et combattre sur les hauteurs |
+| 2 | **Pourpre** (la cour / le sang) | Salle de bal des Conviés, luxe sanglant | **La foule & le masque** : se fondre parmi les invités masqués pour ne pas être repéré ; rompre le bal déclenche la nuée | **La Mort Pourpre** : saigne le décor, commande la foule des Conviés — la séparer de ses sujets, frapper dans les fenêtres d'isolement |
+| 3 | **Verte** (la serre pourrie) | Végétation morte, spores, contamination galopante | **L'envahissement** : le texte-lierre pousse vite et ferme les chemins ; zones de spores à éviter, course contre la corruption | **La Mort Verte** : empoisonneuse, fait croître le décor pour vous enfermer — détruire les foyers de croissance avant qu'ils ne saturent l'arène |
+| 4 | **Orange** (les feux / la forge) | Braseros, fonte, lumière incandescente | **Le feu** : on peut enflammer (la mèche de l'arquebuse prend tout son sens), mais le feu se propage et **accélère la contamination** ; manier l'incendie sans s'y prendre | **La Mort Orange** : incandescente, sème des brasiers et des traînées — la noyer/l'éteindre, exploiter les zones déjà brûlées comme refuge |
+| 5 | **Blanche** (l'ossuaire / le silence) | Os, marbre, lumière aveuglante, silence | **La privation sensorielle** : aveuglement blanc, on s'oriente au **son** (pas, respiration, calligraphie qui chuchote) | **La Mort Blanche** : silencieuse, invisible quand on la fixe, frappe dans l'angle mort — la « lire » à l'oreille et au texte qu'elle laisse |
+| 6 | **Violette** (le délire) | Couleur de la folie, perceptions trompées | **L'hallucination** : faux ennemis, faux loot, faux murs (reprise de l'effet de contamination haute) ; douter de tout ce qu'on voit | **La Mort Violette** : illusionniste, se démultiplie en leurres — distinguer la vraie au comportement, pas à l'apparence |
+| 7 | **Noire** aux vitraux écarlates (la fin) | La chambre que nul n'osait habiter, l'Horloge d'Ébène | **La synthèse** : toutes les mécaniques combinées, aucune soupape, l'Horloge scande des phases ; rien n'est sûr | **LA MORT ROUGE** : boss final, **non « tuable » au sens classique** — il faut survivre/désamorcer ses phases au lieu de la vaincre de front (voir §3.3 et §5) |
+
+**Notes de design :**
+- **Sept couleurs, sept verbes** : lumière, foule/discrétion, envahissement, feu, son, illusion, synthèse. Aucun étage ne se joue comme un autre → variété garantie sans multiplier les systèmes (chaque verbe réutilise des briques existantes : contamination, lanterne, mèche, audio).
+- **Courbe de difficulté = l'ordre des couleurs de Poe.** Le bleu (est, l'aube) introduit ; le noir (ouest, le couchant/la mort) conclut. La progression spatiale *est* la courbe dramatique.
+- **Le village de Toscane** sert de prologue jouable (apprentissage des bases : déplacement, lanterne, arquebuse, première montée de contamination) avant la première chambre — pas un simple menu.
+- **Production :** un boss par étage est ambitieux. Pour un vertical slice, prototyper **2 chambres contrastées** (ex. Bleue = lumière/eau, et Verte = envahissement/contamination) + la Mort Rouge, afin de prouver la formule « mécanique unique + Mort de couleur ».
 
 ---
 
@@ -117,8 +154,8 @@ Effets **graduels et lisibles**, jamais brutaux (pour rester équitable) :
 Sans soupape, le système est punitif. Le joueur doit pouvoir **respirer** :
 
 - **Kits de purge** (loot rare) : baisse directe de la jauge, animation rituelle (vulnérable pendant ~2 s).
-- **Sanctuaires** : salles « propres » (vitraux intacts, encens) où la contamination **redescend lentement** si on s'arrête → mais on perd du temps/loot ailleurs.
-- **Extraction** : remet la jauge à un niveau de base au hub.
+- **Sanctuaires** : salles « propres » (vitraux intacts, encens) au sein d'un étage où la contamination **redescend lentement** si on s'arrête → mais on perd du temps/loot ailleurs.
+- **Le palier de l'escalier** : après avoir vaincu une Mort de couleur, le sas vers l'étage suivant est un bref répit où la jauge **redescend à un niveau de base**. C'est la récompense de progression et le rythme de respiration entre deux étages.
 
 ### 2.5 Feedback visuel & sonore
 
@@ -173,15 +210,31 @@ Arme unique principale : poudre noire + mèche, **un coup, puis un long reload t
 
 Chaque ennemi doit poser **un problème distinct** au reload long.
 
+**Ennemis communs (peuplent les étages) :**
+
 | Ennemi | Comportement | Rôle de design |
 |---|---|---|
 | **Les Conviés (foule)** | Aristocrates masqués, lents, en groupe | Pression de nombre ; punissent l'immobilité du reload → forcent le kiting et le placement |
 | **Le Murmure** | Silhouette de texte, rapide, fragile | Ennemi « tueur de reload » : oblige à tirer au bon moment ou fuir |
 | **Le Porteur** | Lourd, encaisse, émet une aura de contamination | Contrôle de zone ; tuer ≠ priorité, éviter son aura compte plus |
 | **L'Horloger / le Sonneur** | Mini-boss qui accélère la contamination ambiante | Crée des « phases » d'urgence ; objectif optionnel à fort risque/récompense |
-| **La Mort Rouge (présence)** | N'est pas tuable ; traque si on dépasse un seuil de contamination/temps | Le « Mr. X » du jeu : incarnation du compte à rebours, force l'extraction |
 
-> **La Mort Rouge** comme **chasseur invincible déclenché par la contamination** est l'idée de combat la plus forte : elle fusionne le système de jauge et la menace physique. On ne la combat pas, on la **fuit** — fidèle à Poe (nul n'échappe à la Mort Rouge).
+**Les boss : les Morts de couleur (une par chambre).**
+Chaque étage culmine sur une Mort de couleur dont le combat **exploite la mécanique unique de sa chambre** (détail complet en §1.5). Principe partagé : ce ne sont pas des sacs à PV, mais des **énigmes de combat** où il faut retourner la règle de la salle contre la Mort (éteindre/éclairer, isoler de la foule, contenir l'envahissement, maîtriser le feu, écouter dans le noir, démasquer l'illusion).
+
+| Boss d'étage | Chambre | Clé du combat |
+|---|---|---|
+| **La Mort Bleue** | Bleue | Garder l'arène éclairée, combattre sur les hauteurs hors de l'eau |
+| **La Mort Pourpre** | Pourpre | La séparer de la foule des Conviés, frapper dans les fenêtres d'isolement |
+| **La Mort Verte** | Verte | Détruire les foyers de croissance avant saturation de l'arène |
+| **La Mort Orange** | Orange | L'éteindre/la noyer, utiliser les zones déjà brûlées comme refuge |
+| **La Mort Blanche** | Blanche | La localiser au son, frapper dans l'angle mort |
+| **La Mort Violette** | Violette | Identifier la vraie au comportement, ignorer les leurres |
+
+**Le boss final : LA MORT ROUGE** (chambre noire, §1.5).
+On ne la « tue » pas au sens classique — fidèle à Poe, *nul n'échappe à la Mort Rouge*. Le combat consiste à **survivre et désamorcer ses phases**, scandées par l'Horloge d'Ébène, en mobilisant tout ce que les six chambres ont enseigné. Sa présence peut aussi se manifester en amont comme **héraut/pression** (apparitions fugaces dans les étages quand la contamination est haute), pour installer la menace avant le duel final.
+
+> **La Mort Rouge** fusionne le système de jauge et la menace physique : elle *est* la contamination incarnée. C'est l'idée de boss la plus forte du jeu, et l'aboutissement logique de l'ascension.
 
 ### 3.4 Règles d'équité
 
@@ -236,14 +289,14 @@ Cela justifie diégétiquement chaque effet typographique → cohérence totale.
 **Scène 1 — « L'Horloge d'Ébène » (set-piece signature).**
 Une salle de bal en ruine. Au centre, l'horloge géante de Poe. À chaque heure, elle **sonne** : le son fige les Conviés une seconde, et un **raz-de-marée de calligraphie noire** balaie la pièce depuis l'horloge (montée brutale de contamination). Le joueur doit traverser entre deux sonneries. Iconique, mécanique, fidèle à la nouvelle.
 
-**Scène 2 — « Les Sept Salles ».**
-Hommage direct : sept salles colorées (bleu, pourpre, vert, orange, blanc, violet, **noire à vitraux rouges**). Chaque salle a une couleur dominante qui **teinte sa calligraphie** et module une mécanique (la salle noire = contamination max, meilleur loot, repaire potentiel de la Mort Rouge). Progression spatiale = montée dramatique intégrée au level design.
+**Scène 2 — « Les Sept Chambres » (la colonne vertébrale du jeu, détaillée en §1.5).**
+Les sept salles colorées de Poe (bleu, pourpre, vert, orange, blanc, violet, **noire à vitraux rouges**) sont les sept étages du château. Chaque chambre **teinte sa calligraphie** de sa couleur, porte une mécanique de jeu unique et abrite sa Mort de couleur en boss. La progression spatiale (de la chambre bleue de l'aube à la chambre noire de la fin) *est* la montée dramatique : level design et dramaturgie ne font qu'un.
 
 **Scène 3 — « Le Démasquage ».**
 Quand le joueur retire sa combinaison (choix §2.2), la caméra se rapproche un instant : on voit le visage exposé, et l'air ambiant se met à **écrire sur sa peau**. Moment de vulnérabilité intime, fort visuellement et thématiquement.
 
-**Scène 4 — « L'extraction terminale ».**
-Décrite en §1.4-C : l'écran se referme en typographie noire, ne laissant qu'un tunnel de vision blanc vers la sortie. Le monde *finit littéralement de s'écrire* derrière le joueur.
+**Scène 4 — « L'ouverture de l'escalier ».**
+À la mort d'une Mort de couleur, le silence retombe ; la calligraphie de la chambre se **fige puis se rétracte**, révélant l'escalier vers l'étage suivant qui s'illumine. Moment de catharsis et de répit, contraste fort avec la tension du duel — la récompense émotionnelle de l'ascension.
 
 ---
 
@@ -260,27 +313,30 @@ Aucun shooter d'exploration ne fait de la **typographie la mécanique ET l'esth�
 1. **La combinaison qui protège-et-condamne** (§2.2)
    Inversion du tropisme « armure = bien ». Ici, plus tu te protèges, plus tu te tues. Dilemme permanent, propre au thème du médecin de peste.
 
-2. **La Mort Rouge comme compte à rebours incarné** (§3.3)
-   Le chasseur invincible n'est pas un timer abstrait : c'est une présence qui *est* ta contamination. Fusion mécanique/fiction.
+2. **Les sept chambres, sept verbes, sept Morts de couleur** (§1.5)
+   Une ascension où chaque étage se joue différemment et culmine sur un duel thématique fidèle à Poe. Variété intégrée au level design, sans surcharge de systèmes.
 
-3. **Le texte comme danger lisible** (§4.2)
+3. **La Mort Rouge comme aboutissement incarné** (§3.3)
+   Boss final qu'on ne tue pas mais qu'on survit ; en amont, présence/héraut qui *est* ta contamination. Fusion mécanique/fiction.
+
+4. **Le texte comme danger lisible** (§4.2)
    Apprendre à « lire » la pièce — littéralement. Le langage visuel devient une compétence de survie. Skill ceiling unique.
 
-4. **L'Horloge d'Ébène comme métronome de tension** (§4.4)
-   Découpe chaque aile en mesures dramatiques. Rythme imposé, fidèle à Poe, mémorable.
+5. **L'Horloge d'Ébène comme métronome de tension** (§4.4)
+   Scande l'étage final en mesures dramatiques. Rythme imposé, fidèle à Poe, mémorable.
 
-5. **Le démasquage volontaire** (§2.2 / §4.4-Scène 3)
+6. **Le démasquage volontaire** (§2.2 / §4.4-Scène 3)
    Choix risqué et intime : sacrifier sa protection pour respirer. Peu de jeux laissent retirer son armure comme stratégie.
 
 ### 5.3 Idées d'expansion (réserve, post-vertical-slice)
 
-- **Run-based / roguelite léger** : les ailes se recomposent, méta-progression sur le hub (réparations permanentes, nouvelles recettes de purge). Allonge la durée de vie, colle à la boucle d'expédition.
-- **Le « Livre » de la Mort Rouge** : un codex qui se remplit du texte que le joueur survit — la mémoire des runs s'écrit. Méta-narration cohérente.
+- **New Game + / Mode Cauchemar** : réascension du château avec chambres recombinées, Morts plus agressives, contamination plus rapide. Préserve la structure narrative tout en offrant de la rejouabilité (plutôt qu'un roguelite qui casserait le fil Toscane → sommet).
+- **Le « Livre » de la Mort Rouge** : un codex qui se remplit du texte que le joueur survit, chambre après chambre — la mémoire de l'ascension s'écrit. Méta-narration cohérente.
 - **Mode « Lecture » accessibilité** : pour les sensibles à la lisibilité, réglages de densité/contraste typographique. À prévoir tôt (la DA repose sur du texte → enjeu d'accessibilité réel).
 
 ### 5.4 Garde-fous de production (faisabilité)
 
-- **Vertical slice recommandé** : 1 aile (les Sept Salles condensées), 3 types d'ennemis (Conviés, Murmure, Porteur), l'arquebuse + 1 soupape (kit de purge), l'Horloge d'Ébène, et la Mort Rouge déclenchée. Suffisant pour prouver les 3 piliers.
+- **Vertical slice recommandé** : le prologue de Toscane + 2 chambres contrastées (ex. Bleue = lumière/eau et Verte = envahissement) avec leurs deux Morts de couleur, 3 types d'ennemis communs (Conviés, Murmure, Porteur), l'arquebuse + 1 soupape (kit de purge). Suffisant pour prouver la formule « exploration tendue → mécanique unique → Mort de couleur » et les 3 piliers.
 - **Le système typographique est le risque technique n°1** : prototyper tôt la croissance procédurale de texte + la lisibilité en mouvement. Si trop coûteux, fallback : textures de calligraphie animées par shaders (moins émergent, mais fiable).
 - **Une seule jauge, des effets multiples** : tenir la promesse « simple mais expressif ». Ne pas multiplier les barres.
 
@@ -292,10 +348,11 @@ Aucun shooter d'exploration ne fait de la **typographie la mécanique ET l'esth�
 |---|---|---|---|
 | Tension temporelle | Jauge de contamination | Texte qui envahit l'écran | « Le Temps fuit » / Horloge d'Ébène |
 | Risque du combat | Reload long de l'arquebuse | Fumée qui masque, traînée de lettres | Danger feutré, aristocratique |
-| Survie / loot | Anneaux de profondeur | Ratio noir-rouge / or-blanc | Les Sept Salles |
+| Progression / variété | Ascension des 7 chambres (1 mécanique + 1 boss par couleur) | Calligraphie teintée de la couleur de l'étage | Les sept salles du château de Prospero |
+| Survie / loot | Anneaux de profondeur dans chaque étage | Ratio noir-rouge / or-blanc | Le luxe malade, les Conviés |
 | Vulnérabilité | Combinaison qui se dégrade | Calligraphie qui s'écrit sur la peau | Le médecin de peste, le masque |
-| Mortalité inéluctable | La Mort Rouge (chasseur) | Présence rouge pourpre | « Et la Mort Rouge régna sans partage » |
+| Mortalité inéluctable | La Mort Rouge (boss final non tuable) | Présence rouge pourpre, vitraux écarlates | « Et la Mort Rouge régna sans partage » |
 
 ---
 
-*Tout dans ce document tient à une seule idée : le joueur lutte contre le temps qui s'écrit. Le gameplay le mesure, l'arme le ralentit, la DA le montre, et la Mort Rouge le clôt.*
+*Tout dans ce document tient à une seule idée : le joueur lutte contre le temps qui s'écrit. Le gameplay le mesure, l'arme le ralentit, la DA le montre, l'ascension des sept chambres le met en scène, et la Mort Rouge le clôt — au sommet du château de Prospero, là où nul n'échappe à la Mort Rouge.*
